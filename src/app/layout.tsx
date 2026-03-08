@@ -1,0 +1,26 @@
+import type { Metadata } from 'next'
+import './globals.css'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import SessionProvider from '@/components/SessionProvider'
+import Navbar from '@/components/Navbar'
+
+export const metadata: Metadata = {
+  title: 'OctagonBet — UFC Fight Betting',
+  description: 'Premium UFC fight betting with live odds and real-time updates.',
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions)
+
+  return (
+    <html lang="en">
+      <body className="min-h-screen bg-background">
+        <SessionProvider session={session}>
+          <Navbar />
+          <main>{children}</main>
+        </SessionProvider>
+      </body>
+    </html>
+  )
+}

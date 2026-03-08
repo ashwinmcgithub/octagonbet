@@ -1,0 +1,60 @@
+# Product Requirements Document - OctagonBet
+
+**Version:** 1.2
+**Date:** 2026-03-08
+**Status:** Updated (Social & Automated focus)
+
+---
+
+## 1. Product Overview
+**OctagonBet** is a UFC fight betting web application where users wager virtual currency (FightCoins) on MMA fight outcomes. The platform pulls real-time odds from The Odds API and provides a full betting experience with **no real-money transactions**.
+
+**Tagline:** "Bet on the Octagon - Real-time UFC odds. Watch your FightCoins grow."
+
+## 2. Goals and Business Rules
+- **Goals:** Provide a fun, fast, virtual betting experience. Enable social interaction through peer-to-peer transfers and referrals.
+- **Business Rules:**
+    1. No real money involved; FightCoins are virtual.
+    2. Users cannot bet on completed fights.
+    3. Bets require a positive amount not exceeding current balance.
+    4. Balance is deducted immediately when a bet is placed.
+    5. Winners receive full payout (stake + profit) based on American odds.
+    6. Cancelled fights trigger refunds.
+    7. No manual recharge allowed. Recharge is replaced by referral bonuses and social transfers.
+    8. New users receive a referral code. Successful sign-ups using a referral code grant **500 FC** to the referrer.
+    9. Automated Settlement: Once a fight is "Completed," the system automatically calculates winners and executes payouts.
+
+## 3. Tech Stack
+- **Framework:** Next.js (App Router, TypeScript)
+- **Styling:** Tailwind CSS
+- **Database:** PostgreSQL (via Prisma ORM)
+- **Auth:** NextAuth.js
+- **API:** The Odds API (MMA/UFC odds)
+- **Deployment:** Vercel
+
+## 4. Referral & Social Features
+- **Referral Program:** Every user has a unique `referralCode` (e.g., `ASHWIN500`).
+- **Referral Reward:** When a new user signs up with a valid referral code, the referrer is automatically credited **500 FC**.
+- **Social Transfers:** Users can send FightCoins to friends if they run out. Transfers are user-initiated and recorded as transactions.
+
+## 5. Automated Settlement
+- The system polls fight data. Upon detecting a "Completed" status, it triggers the settlement service automatically to pay out winners.
+- An "Admin" manual override button ("Sync Odds & Settle") remains for emergency adjustments or API sync delays.
+
+## 6. Data Models (Key Additions)
+- **User:** Added `referralCode` (String) and `referredBy` (String?) to track relationships.
+- **Transaction:** Added `referral_bonus` type to track coins earned from new sign-ups.
+
+## 7. API Endpoints
+- `GET /api/fights` - List fights.
+- `POST /api/odds/sync` - Admin sync + auto-settle trigger.
+- `GET /api/bets` - Get user bets.
+- `POST /api/bets` - Place a new bet.
+- `POST /api/wallet/transfer` - Send FC to a friend.
+- `GET /api/user` - Current user info (including referral status).
+
+## 8. UX Conventions
+- Dark theme with red accent.
+- "Live" fights use pulsing amber indicators.
+- American odds format.
+- Mobile-responsive design (Desktop: 3-col, Tablet: 2-col, Mobile: 1-col).
