@@ -21,14 +21,17 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts       Account[]
-  sessions       Session[]
-  bets           Bet[]
-  transactions   Transaction[]
-  groupsOwned    Group[]
-  groupMembers   GroupMember[]
-  messages       Message[]
-  groupBetShares GroupBetShare[]
+  accounts              Account[]
+  sessions              Session[]
+  bets                  Bet[]
+  transactions          Transaction[]
+  groupsOwned           Group[]
+  groupMembers          GroupMember[]
+  messages              Message[]
+  groupBetShares        GroupBetShare[]
+  challengesCreated     Challenge[]          @relation("ChallengeCreator")
+  challengeParticipants ChallengeParticipant[]
+  challengeProofs       ChallengeProof[]
 }
 
 model Account {
@@ -152,6 +155,53 @@ model GroupBetShare {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupBetId, userId])
+}
+
+// ── P2P / team challenges — bet on anything ─────────────────────────────────
+model Challenge {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  creatorId   String
+  prizeType   String   // "money" | "item"
+  prizeAmount Float?   // FC stake per person (money bets)
+  prizeItem   String?  // item description (item bets)
+  status      String   @default("open")
+  // open → active → awaiting_resolution → completed | disputed | cancelled
+  winningSide String?  // "a" | "b"
+  inviteCode  String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator      User                   @relation("ChallengeCreator", fields: [creatorId], references: [id])
+  participants ChallengeParticipant[]
+  proofs       ChallengeProof[]
+}
+
+model ChallengeParticipant {
+  id          String   @id @default(cuid())
+  challengeId String
+  userId      String
+  side        String   // "a" | "b"
+  payout      Float?
+  joinedAt    DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+}
+
+model ChallengeProof {
+  id          String   @id @default(cuid())
+  challengeId String
+  submittedBy String
+  claimSide   String   // "a" | "b" — which side is claiming win
+  description String
+  createdAt   DateTime @default(now())
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  submitter User      @relation(fields: [submittedBy], references: [id], onDelete: Cascade)
 }
 
 model Bet {

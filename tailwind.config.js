@@ -42,6 +42,7 @@ module.exports = {
         'win-pulse': 'win-pulse 0.5s ease-out forwards',
         'logo-glow': 'logo-glow 1.5s ease-in-out infinite',
         'ticker': 'ticker 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        'confetti': 'confetti 2s ease-in forwards',
       },
       keyframes: {
         'pulse-red': {
@@ -88,6 +89,10 @@ module.exports = {
         'ticker': {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'confetti': {
+          '0%': { transform: 'translateY(-10px) rotateZ(0deg)', opacity: '1' },
+          '100%': { transform: 'translateY(100vh) rotateZ(720deg)', opacity: '0' },
         },
       },
       boxShadow: {
