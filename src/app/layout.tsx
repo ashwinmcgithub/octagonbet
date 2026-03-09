@@ -4,10 +4,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import SessionProvider from '@/components/SessionProvider'
 import Navbar from '@/components/Navbar'
+import LoadingScreen from '@/components/LoadingScreen'
 
 export const metadata: Metadata = {
-  title: 'OctagonBet — UFC Fight Betting',
-  description: 'Premium UFC fight betting with live odds and real-time updates.',
+  title: 'ApexWager — Live Sports Betting',
+  description: 'Premium sports betting with live odds and real-time updates. UFC, MMA and more.',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body className="min-h-screen bg-background">
         <SessionProvider session={session}>
+          <LoadingScreen />
           <Navbar />
           <main>{children}</main>
         </SessionProvider>

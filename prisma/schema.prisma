@@ -13,6 +13,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+  phone         String?
   balance       Float     @default(1000)
   role          String    @default("user")
   referralCode  String?   @unique
@@ -20,10 +21,14 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts     Account[]
-  sessions     Session[]
-  bets         Bet[]
-  transactions Transaction[]
+  accounts       Account[]
+  sessions       Session[]
+  bets           Bet[]
+  transactions   Transaction[]
+  groupsOwned    Group[]
+  groupMembers   GroupMember[]
+  messages       Message[]
+  groupBetShares GroupBetShare[]
 }
 
 model Account {
@@ -77,7 +82,76 @@ model Fight {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  bets Bet[]
+  bets      Bet[]
+  groupBets GroupBet[]
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  inviteCode  String   @unique
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner     User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members   GroupMember[]
+  messages  Message[]
+  groupBets GroupBet[]
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GroupBet {
+  id          String   @id @default(cuid())
+  groupId     String
+  fightId     String
+  proposerId  String
+  fighter     String
+  totalAmount Float    @default(0)
+  status      String   @default("open")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group   Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  fight   Fight           @relation(fields: [fightId], references: [id], onDelete: Cascade)
+  shares  GroupBetShare[]
+}
+
+model GroupBetShare {
+  id         String   @id @default(cuid())
+  groupBetId String
+  userId     String
+  amount     Float
+  payout     Float?
+  createdAt  DateTime @default(now())
+
+  groupBet GroupBet @relation(fields: [groupBetId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupBetId, userId])
 }
 
 model Bet {

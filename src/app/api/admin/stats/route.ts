@@ -9,7 +9,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const [userCount, fightCount, betCount, pendingBets] = await Promise.all([
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+  const [userCount, fightCount, betCount, pendingBets, newUsersThisWeek, platformBalance, recentUsers] = await Promise.all([
     prisma.user.count(),
     prisma.fight.count({ where: { NOT: { status: 'cancelled' } } }),
     prisma.bet.count(),
@@ -17,6 +19,13 @@ export async function GET() {
       where: { status: 'pending' },
       _sum: { amount: true },
       _count: true,
+    }),
+    prisma.user.count({ where: { createdAt: { gte: oneWeekAgo } } }),
+    prisma.user.aggregate({ _sum: { balance: true } }),
+    prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, name: true, email: true, createdAt: true, role: true },
     }),
   ])
 
@@ -35,5 +44,8 @@ export async function GET() {
       totalAmount: pendingBets._sum.amount ?? 0,
     },
     betsByStatus,
+    newUsersThisWeek,
+    platformBalance: platformBalance._sum.balance ?? 0,
+    recentUsers,
   })
 }

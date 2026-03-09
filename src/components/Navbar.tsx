@@ -4,7 +4,7 @@ import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
-import { Flame, Wallet, BookOpen, ChevronDown, LogOut, Shield, Menu, X } from 'lucide-react'
+import { Flame, Wallet, BookOpen, ChevronDown, LogOut, Shield, Menu, X, Users } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
 export default function Navbar() {
@@ -22,7 +22,7 @@ export default function Navbar() {
               <Flame className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight text-text-primary">
-              OCTAGON<span className="text-primary">BET</span>
+              APEX<span className="text-primary">WAGER</span>
             </span>
           </Link>
 
@@ -49,6 +49,13 @@ export default function Navbar() {
                 >
                   <Wallet className="h-4 w-4" />
                   Wallet
+                </Link>
+                <Link
+                  href="/groups"
+                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
+                >
+                  <Users className="h-4 w-4" />
+                  Groups
                 </Link>
               </>
             )}
@@ -172,6 +179,13 @@ export default function Navbar() {
               className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
             >
               Wallet — FC {formatCurrency(session.user.balance)}
+            </Link>
+            <Link
+              href="/groups"
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
+            >
+              Groups
             </Link>
           </div>
         )}

@@ -104,6 +104,44 @@ export async function POST(req: Request) {
         results.settled++
       }
 
+      // Settle group bets for this fight
+      const openGroupBets = await prisma.groupBet.findMany({
+        where: { fightId: fight.id, status: 'open' },
+        include: { shares: true, fight: true },
+      })
+
+      for (const groupBet of openGroupBets) {
+        const won = groupBet.fighter === winner
+        const odds = winner === 'home' ? fight.homeOdds : fight.awayOdds
+
+        for (const share of groupBet.shares) {
+          const sharePayout = won && odds ? calculatePayout(share.amount, odds) * (share.amount / groupBet.totalAmount) : 0
+          await prisma.groupBetShare.update({
+            where: { id: share.id },
+            data: { payout: won ? sharePayout : 0 },
+          })
+          if (won && sharePayout > 0) {
+            await prisma.user.update({
+              where: { id: share.userId },
+              data: { balance: { increment: sharePayout } },
+            })
+            await prisma.transaction.create({
+              data: {
+                userId: share.userId,
+                type: 'group_bet_win',
+                amount: sharePayout,
+                description: `Group bet won: ${winnerName} — FC${sharePayout.toFixed(0)} payout`,
+              },
+            })
+          }
+        }
+
+        await prisma.groupBet.update({
+          where: { id: groupBet.id },
+          data: { status: won ? 'won' : 'lost' },
+        })
+      }
+
       // Mark fight as completed
       await prisma.fight.update({
         where: { id: fight.id },

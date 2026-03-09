@@ -68,7 +68,7 @@ export default function WalletPage() {
       return
     }
     if (amount > balance) {
-      setTransferError('Insufficient FightCoins')
+      setTransferError('Insufficient ApexCoins')
       return
     }
     setTransferLoading(true)
@@ -82,7 +82,7 @@ export default function WalletPage() {
       if (!res.ok) throw new Error(data.error)
       setBalance(data.balance)
       await update()
-      setTransferSuccess(`Sent FC ${formatCurrency(data.sent)} to ${data.recipient}!`)
+      setTransferSuccess(`Sent AC ${formatCurrency(data.sent)} to ${data.recipient}!`)
       setTransferEmail('')
       setTransferAmount('')
       // Refresh transactions
@@ -125,7 +125,7 @@ export default function WalletPage() {
     <div className="min-h-[calc(100vh-4rem)] mx-auto max-w-4xl px-4 py-10">
       <div className="mb-8">
         <h1 className="text-3xl font-black text-text-primary">Wallet</h1>
-        <p className="text-muted mt-1">Manage your FightCoins</p>
+        <p className="text-muted mt-1">Manage your ApexCoins</p>
       </div>
 
       {/* Balance card */}
@@ -134,7 +134,7 @@ export default function WalletPage() {
         <div className="relative">
           <div className="flex items-center gap-2 mb-2">
             <Wallet className="h-5 w-5 text-primary" />
-            <span className="text-sm text-muted uppercase tracking-wider">FightCoin Balance</span>
+            <span className="text-sm text-muted uppercase tracking-wider">ApexCoin Balance</span>
           </div>
           <p className="text-6xl font-black text-text-primary">
             <span className="text-2xl text-muted mr-2">FC</span>
@@ -147,13 +147,13 @@ export default function WalletPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-        {/* Send FC to a Friend */}
+        {/* Send AC to a Friend */}
         <div className="rounded-2xl border border-border bg-surface p-6">
           <div className="flex items-center gap-2 mb-1">
             <Send className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold text-text-primary">Send FightCoins</h2>
+            <h2 className="text-lg font-bold text-text-primary">Send ApexCoins</h2>
           </div>
-          <p className="text-sm text-muted mb-5">Help a friend who's run out of FC.</p>
+          <p className="text-sm text-muted mb-5">Help a friend who's run out of AC.</p>
 
           <form onSubmit={handleTransfer} className="space-y-4">
             <div>
@@ -219,7 +219,7 @@ export default function WalletPage() {
               disabled={transferLoading}
               className="w-full rounded-xl bg-primary hover:bg-primary-hover py-3 text-sm font-bold text-white transition-all disabled:opacity-50"
             >
-              {transferLoading ? 'Sending...' : 'Send FightCoins'}
+              {transferLoading ? 'Sending...' : 'Send ApexCoins'}
             </button>
           </form>
         </div>
@@ -231,7 +231,7 @@ export default function WalletPage() {
             <h2 className="text-lg font-bold text-text-primary">Refer Friends</h2>
           </div>
           <p className="text-sm text-muted mb-5">
-            Share your code. Earn <strong className="text-win">+500 FC</strong> for every friend who joins!
+            Share your code. Earn <strong className="text-win">+500 AC</strong> for every friend who joins!
           </p>
 
           {profile?.referralCode ? (
@@ -252,7 +252,7 @@ export default function WalletPage() {
               <div className="rounded-xl bg-blue-400/10 border border-blue-400/20 px-4 py-3">
                 <p className="text-sm text-blue-400 font-medium">
                   {profile.referralCount > 0
-                    ? `${profile.referralCount} friend${profile.referralCount > 1 ? 's' : ''} joined with your code — that's FC ${formatCurrency(profile.referralCount * 500)} earned!`
+                    ? `${profile.referralCount} friend${profile.referralCount > 1 ? 's' : ''} joined with your code — that's AC ${formatCurrency(profile.referralCount * 500)} earned!`
                     : 'No referrals yet. Share your code to start earning!'}
                 </p>
               </div>
@@ -269,7 +269,7 @@ export default function WalletPage() {
               <span className="text-primary font-bold">2.</span> They enter it when registering
             </p>
             <p className="flex items-start gap-2">
-              <span className="text-win font-bold">3.</span> You both benefit — they get 1,000 FC, you get 500 FC bonus!
+              <span className="text-win font-bold">3.</span> You both benefit — they get 1,000 AC, you get 500 AC bonus!
             </p>
           </div>
         </div>
@@ -307,7 +307,7 @@ export default function WalletPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className={cn('font-bold text-sm', isPositive ? 'text-win' : 'text-primary')}>
-                      {isPositive ? '+' : ''}FC {formatCurrency(Math.abs(tx.amount))}
+                      {isPositive ? '+' : ''}AC {formatCurrency(Math.abs(tx.amount))}
                     </p>
                     <p className="text-xs text-muted capitalize">{config.label}</p>
                   </div>

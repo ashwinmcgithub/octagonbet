@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Trophy, Clock, XCircle, TrendingUp, Flame } from 'lucide-react'
 import { formatDate, formatCurrency, formatOdds } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import WinCelebration from '@/components/WinCelebration'
 
 interface Bet {
   id: string
@@ -37,6 +38,7 @@ export default function MyBetsPage() {
   const [bets, setBets] = useState<Bet[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'won' | 'lost'>('all')
+  const [showWinCelebration, setShowWinCelebration] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login')
@@ -49,6 +51,11 @@ export default function MyBetsPage() {
       .then((data) => {
         setBets(data)
         setLoading(false)
+        // Fire celebration if user has any won bets
+        const hasWins = data.some((b: Bet) => b.status === 'won')
+        if (hasWins) {
+          setTimeout(() => setShowWinCelebration(true), 600)
+        }
       })
   }, [status])
 
@@ -68,6 +75,7 @@ export default function MyBetsPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] mx-auto max-w-4xl px-4 py-10">
+      <WinCelebration active={showWinCelebration} onDone={() => setShowWinCelebration(false)} />
       <div className="mb-8">
         <h1 className="text-3xl font-black text-text-primary">My Bets</h1>
         <p className="text-muted mt-1">Track all your fight predictions</p>
@@ -81,7 +89,7 @@ export default function MyBetsPage() {
         </div>
         <div className="rounded-2xl border border-win/20 bg-win/5 p-5">
           <p className="text-xs text-muted uppercase tracking-wider mb-1">Total Won</p>
-          <p className="text-2xl font-black text-win">FC {formatCurrency(totalWon)}</p>
+          <p className="text-2xl font-black text-win">AC {formatCurrency(totalWon)}</p>
         </div>
         <div className="rounded-2xl border border-live/20 bg-live/5 p-5">
           <p className="text-xs text-muted uppercase tracking-wider mb-1">Pending</p>
@@ -144,7 +152,7 @@ export default function MyBetsPage() {
                     </p>
                     <div className="flex flex-wrap items-center gap-3 mt-2">
                       <span className="text-sm text-muted">
-                        Stake: <span className="text-text-primary font-medium">FC {formatCurrency(bet.amount)}</span>
+                        Stake: <span className="text-text-primary font-medium">AC {formatCurrency(bet.amount)}</span>
                       </span>
                       <span className="text-sm text-muted">
                         Odds: <span className="text-text-primary font-medium">{formatOdds(bet.odds)}</span>
@@ -152,7 +160,7 @@ export default function MyBetsPage() {
                       {bet.status === 'won' && bet.payout && (
                         <span className="text-sm font-bold text-win flex items-center gap-1">
                           <TrendingUp className="h-3.5 w-3.5" />
-                          +FC {formatCurrency(bet.payout - bet.amount)} profit
+                          +AC {formatCurrency(bet.payout - bet.amount)} profit
                         </span>
                       )}
                     </div>
@@ -165,7 +173,7 @@ export default function MyBetsPage() {
                     </div>
                     {bet.status === 'won' && bet.payout && (
                       <p className="text-right text-sm font-black text-win mt-1">
-                        FC {formatCurrency(bet.payout)}
+                        AC {formatCurrency(bet.payout)}
                       </p>
                     )}
                   </div>

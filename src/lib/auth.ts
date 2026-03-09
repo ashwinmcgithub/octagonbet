@@ -95,7 +95,7 @@ export const authOptions: NextAuthOptions = {
           userId: user.id,
           type: 'initial',
           amount: 1000,
-          description: 'Welcome bonus — 1,000 FightCoins to get you started!',
+          description: 'Welcome bonus — 1,000 ApexCoins to get you started!',
         },
       })
     },

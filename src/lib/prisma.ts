@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
-import { Pool, neonConfig } from '@neondatabase/serverless'
+import { neonConfig } from '@neondatabase/serverless'
 
 // Use WebSocket (port 443) instead of direct TCP (port 5432)
 if (typeof WebSocket === 'undefined') {
@@ -12,13 +12,11 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefi
 
 function createClient(): PrismaClient {
   const url = process.env.DATABASE_URL
-  console.log('[prisma] createClient called, DATABASE_URL present:', !!url, 'prefix:', url?.slice(0, 20))
-
   if (!url) throw new Error('DATABASE_URL not set')
 
-  const pool = new Pool({ connectionString: url })
-  const adapter = new PrismaNeon(pool as any)
-  return new PrismaClient({ adapter } as any)
+  // PrismaNeon 7.x takes a config object and creates the pool internally
+  const adapter = new PrismaNeon({ connectionString: url })
+  return new PrismaClient({ adapter })
 }
 
 // Export a lazy-initialized proxy so the client is created on first use

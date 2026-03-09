@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Clock, Zap, Trophy, Users } from 'lucide-react'
-import { formatOdds, timeUntilFight } from '@/lib/utils'
+import { Calendar, Clock, Zap, Trophy, Users, ChevronRight } from 'lucide-react'
+import { formatDateOrdinalIST, formatOdds, formatTimeIST, timeUntilFight } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import BettingModal from './BettingModal'
+import FightDetailModal from './FightDetailModal'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { getFighterFallbackDataUri, getFighterImageUrl } from '@/lib/fighter-images'
 
 interface Fight {
   id: string
@@ -17,43 +19,63 @@ interface Fight {
   awayOdds: number | null
   status: string
   winner: string | null
+  eventName: string | null
   _count?: { bets: number }
 }
 
 export default function FightCard({ fight, onBetPlaced }: { fight: Fight; onBetPlaced?: () => void }) {
   const { data: session } = useSession()
   const router = useRouter()
-  const [modalOpen, setModalOpen] = useState(false)
+
+  // Betting modal state
+  const [bettingOpen, setBettingOpen] = useState(false)
   const [selectedFighter, setSelectedFighter] = useState<'home' | 'away' | null>(null)
+
+  // Detail modal state
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const isLive = fight.status === 'live'
   const isCompleted = fight.status === 'completed'
   const homeWon = isCompleted && fight.winner === 'home'
   const awayWon = isCompleted && fight.winner === 'away'
 
-  function handlePickFighter(side: 'home' | 'away') {
-    if (!session) {
-      router.push('/login')
-      return
-    }
+  function openBetting(side: 'home' | 'away') {
+    if (!session) { router.push('/login'); return }
     if (isCompleted) return
+    setDetailOpen(false)
     setSelectedFighter(side)
-    setModalOpen(true)
+    setBettingOpen(true)
+  }
+
+  function handlePickFighter(e: React.MouseEvent, side: 'home' | 'away') {
+    e.stopPropagation()
+    openBetting(side)
+  }
+
+  function handleCardClick() {
+    // Don't open detail modal for completed fights (optional — remove if you want it)
+    setDetailOpen(true)
+  }
+
+  function handleViewDetails(e: React.MouseEvent) {
+    e.stopPropagation()
+    setDetailOpen(true)
   }
 
   return (
     <>
       <div
+        onClick={handleCardClick}
         className={cn(
-          'group relative rounded-2xl border bg-card-gradient transition-all duration-300',
+          'group relative rounded-2xl border bg-card-gradient transition-all duration-300 overflow-hidden',
           isLive
-            ? 'border-live/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+            ? 'border-live/40 shadow-[0_0_24px_rgba(245,158,11,0.18)] cursor-pointer'
             : isCompleted
-            ? 'border-border opacity-75'
+            ? 'border-border opacity-75 cursor-pointer'
             : 'border-border hover:border-primary/40 hover:shadow-red-sm cursor-pointer'
         )}
       >
-        {/* Status badge */}
+        {/* ── Top bar: status + bet count ── */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           {isLive ? (
             <span className="flex items-center gap-1.5 text-xs font-bold text-live">
@@ -80,14 +102,38 @@ export default function FightCard({ fight, onBetPlaced }: { fight: Fight; onBetP
           )}
         </div>
 
-        {/* Fighters */}
-        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 px-5 pb-5">
+        {/* ── Event name ── */}
+        {fight.eventName && (
+          <div className="px-5 pb-1">
+            <span className="text-[10px] font-semibold text-muted uppercase tracking-widest">
+              {fight.eventName}
+            </span>
+          </div>
+        )}
+
+        {/* ── Date / Time badge (IST) — prominent pill ── */}
+        {!isLive && (
+          <div className="px-5 pb-3">
+            <div className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/8 px-3 py-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-xs font-bold text-text-primary">
+                {formatDateOrdinalIST(fight.commenceTime)}
+              </span>
+              <span className="text-[10px] text-muted border-l border-border pl-2">
+                {formatTimeIST(fight.commenceTime)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Fighters ── */}
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 px-4 pb-4">
           {/* Home fighter */}
           <button
-            onClick={() => handlePickFighter('home')}
+            onClick={(e) => handlePickFighter(e, 'home')}
             disabled={isCompleted}
             className={cn(
-              'flex flex-col items-center gap-3 rounded-xl p-4 transition-all',
+              'flex flex-col items-center gap-2 rounded-xl p-3 transition-all',
               isCompleted
                 ? homeWon
                   ? 'bg-win/10 border border-win/30'
@@ -95,29 +141,37 @@ export default function FightCard({ fight, onBetPlaced }: { fight: Fight; onBetP
                 : 'bg-surface-2 border border-border hover:border-primary hover:bg-primary/5 active:scale-95'
             )}
           >
+            {/* Fighter photo */}
             <div
               className={cn(
-                'h-16 w-16 rounded-full flex items-center justify-center text-2xl font-black border-2',
-                homeWon
-                  ? 'bg-win/20 border-win/40 text-win'
-                  : 'bg-surface border-border-bright text-text-primary'
+                'h-20 w-20 rounded-full overflow-hidden border-2 shrink-0',
+                homeWon ? 'border-win/50' : 'border-border-bright'
               )}
             >
-              {fight.homeTeam.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+              <img
+                src={getFighterImageUrl(fight.homeTeam)}
+                alt={fight.homeTeam}
+                className="h-full w-full object-cover object-top"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={(e) => { e.currentTarget.src = getFighterFallbackDataUri(fight.homeTeam) }}
+              />
             </div>
+
             <div className="text-center">
-              <p className="text-sm font-bold text-text-primary leading-tight">{fight.homeTeam}</p>
-              {homeWon && (
-                <p className="text-xs font-bold text-win mt-1">WINNER</p>
-              )}
+              <p className="text-xs font-bold text-text-primary leading-tight">{fight.homeTeam}</p>
+              {homeWon && <p className="text-[10px] font-black text-win mt-0.5">WINNER</p>}
             </div>
+
             <div
               className={cn(
-                'w-full rounded-lg py-2 text-center font-black text-lg',
+                'w-full rounded-lg py-1.5 text-center font-black text-base',
                 homeWon
                   ? 'bg-win/20 text-win'
                   : isCompleted
                   ? 'bg-surface text-muted'
+                  : fight.homeOdds && fight.homeOdds > 0
+                  ? 'bg-win/10 text-win group-hover:bg-win/20'
                   : 'bg-primary/10 text-primary group-hover:bg-primary/20'
               )}
             >
@@ -126,21 +180,19 @@ export default function FightCard({ fight, onBetPlaced }: { fight: Fight; onBetP
           </button>
 
           {/* VS */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface border border-border">
-              <span className="text-xs font-black text-muted">VS</span>
+          <div className="flex flex-col items-center justify-center gap-2 pt-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface border border-border">
+              <span className="text-[10px] font-black text-muted">VS</span>
             </div>
-            {isLive && (
-              <Zap className="h-4 w-4 text-live mt-2 animate-pulse-red" />
-            )}
+            {isLive && <Zap className="h-4 w-4 text-live animate-pulse-red" />}
           </div>
 
           {/* Away fighter */}
           <button
-            onClick={() => handlePickFighter('away')}
+            onClick={(e) => handlePickFighter(e, 'away')}
             disabled={isCompleted}
             className={cn(
-              'flex flex-col items-center gap-3 rounded-xl p-4 transition-all',
+              'flex flex-col items-center gap-2 rounded-xl p-3 transition-all',
               isCompleted
                 ? awayWon
                   ? 'bg-win/10 border border-win/30'
@@ -148,29 +200,37 @@ export default function FightCard({ fight, onBetPlaced }: { fight: Fight; onBetP
                 : 'bg-surface-2 border border-border hover:border-primary hover:bg-primary/5 active:scale-95'
             )}
           >
+            {/* Fighter photo */}
             <div
               className={cn(
-                'h-16 w-16 rounded-full flex items-center justify-center text-2xl font-black border-2',
-                awayWon
-                  ? 'bg-win/20 border-win/40 text-win'
-                  : 'bg-surface border-border-bright text-text-primary'
+                'h-20 w-20 rounded-full overflow-hidden border-2 shrink-0',
+                awayWon ? 'border-win/50' : 'border-border-bright'
               )}
             >
-              {fight.awayTeam.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+              <img
+                src={getFighterImageUrl(fight.awayTeam)}
+                alt={fight.awayTeam}
+                className="h-full w-full object-cover object-top"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={(e) => { e.currentTarget.src = getFighterFallbackDataUri(fight.awayTeam) }}
+              />
             </div>
+
             <div className="text-center">
-              <p className="text-sm font-bold text-text-primary leading-tight">{fight.awayTeam}</p>
-              {awayWon && (
-                <p className="text-xs font-bold text-win mt-1">WINNER</p>
-              )}
+              <p className="text-xs font-bold text-text-primary leading-tight">{fight.awayTeam}</p>
+              {awayWon && <p className="text-[10px] font-black text-win mt-0.5">WINNER</p>}
             </div>
+
             <div
               className={cn(
-                'w-full rounded-lg py-2 text-center font-black text-lg',
+                'w-full rounded-lg py-1.5 text-center font-black text-base',
                 awayWon
                   ? 'bg-win/20 text-win'
                   : isCompleted
                   ? 'bg-surface text-muted'
+                  : fight.awayOdds && fight.awayOdds > 0
+                  ? 'bg-win/10 text-win group-hover:bg-win/20'
                   : 'bg-primary/10 text-primary group-hover:bg-primary/20'
               )}
             >
@@ -179,20 +239,41 @@ export default function FightCard({ fight, onBetPlaced }: { fight: Fight; onBetP
           </button>
         </div>
 
-        {/* Hover overlay for non-completed */}
+        {/* ── View Details link ── */}
+        <div className="px-5 pb-4 flex justify-center">
+          <button
+            onClick={handleViewDetails}
+            className="flex items-center gap-1 text-[11px] font-semibold text-muted hover:text-primary transition-colors"
+          >
+            View Details
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+
+        {/* Hover accent */}
         {!isCompleted && !isLive && (
           <div className="absolute inset-x-0 bottom-0 h-0.5 rounded-b-2xl bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         )}
       </div>
 
+      {/* Detail Modal */}
+      <FightDetailModal
+        isOpen={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        fight={fight}
+        onBetHome={() => openBetting('home')}
+        onBetAway={() => openBetting('away')}
+      />
+
+      {/* Betting Modal */}
       {selectedFighter && (
         <BettingModal
-          isOpen={modalOpen}
-          onClose={() => { setModalOpen(false); setSelectedFighter(null) }}
+          isOpen={bettingOpen}
+          onClose={() => { setBettingOpen(false); setSelectedFighter(null) }}
           fight={fight}
           selectedFighter={selectedFighter}
           onSuccess={() => {
-            setModalOpen(false)
+            setBettingOpen(false)
             setSelectedFighter(null)
             onBetPlaced?.()
           }}

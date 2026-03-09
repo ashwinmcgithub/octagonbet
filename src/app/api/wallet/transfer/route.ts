@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const { recipientEmail, amount } = parsed.data
 
   if (recipientEmail.toLowerCase() === session.user.email?.toLowerCase()) {
-    return NextResponse.json({ error: "You can't send FightCoins to yourself" }, { status: 400 })
+    return NextResponse.json({ error: "You can't send ApexCoins to yourself" }, { status: 400 })
   }
 
   // Find recipient
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     select: { balance: true, name: true },
   })
   if (!sender || sender.balance < amount) {
-    return NextResponse.json({ error: 'Insufficient FightCoins' }, { status: 400 })
+    return NextResponse.json({ error: 'Insufficient ApexCoins' }, { status: 400 })
   }
 
   // Atomic transfer

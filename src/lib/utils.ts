@@ -23,6 +23,43 @@ export function formatDate(date: string | Date): string {
   }).format(new Date(date))
 }
 
+export function formatDateIST(date: string | Date): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(date))
+}
+
+function getOrdinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) return 'th'
+  const last = day % 10
+  if (last === 1) return 'st'
+  if (last === 2) return 'nd'
+  if (last === 3) return 'rd'
+  return 'th'
+}
+
+export function formatDateOrdinalIST(date: string | Date): string {
+  const value = new Date(date)
+  const day = Number(new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric' }).format(value))
+  const month = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', month: 'long' }).format(value)
+  const year = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric' }).format(value)
+  return `${day}${getOrdinalSuffix(day)} ${month} ${year}`
+}
+
+export function formatTimeIST(date: string | Date): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).format(new Date(date))
+}
+
 export function timeUntilFight(date: string | Date): string {
   const now = new Date()
   const fight = new Date(date)

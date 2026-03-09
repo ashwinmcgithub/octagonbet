@@ -7,6 +7,7 @@ const schema = z.object({
   name: z.string().min(2).max(50),
   email: z.string().email(),
   password: z.string().min(8),
+  phone: z.string().optional(),
   referralCode: z.string().optional(),
 })
 
@@ -19,7 +20,7 @@ function generateReferralCode(name: string): string {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { name, email, password, referralCode } = schema.parse(body)
+    const { name, email, password, phone, referralCode } = schema.parse(body)
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
         name,
         email,
         password: hashed,
+        phone: phone || null,
         balance: 1000,
         referralCode: newReferralCode,
         referredBy: referrer?.id ?? null,
@@ -58,7 +60,7 @@ export async function POST(req: Request) {
           create: {
             type: 'initial',
             amount: 1000,
-            description: 'Welcome bonus — 1,000 FightCoins to get you started!',
+            description: 'Welcome bonus — 1,000 ApexCoins to get you started!',
           },
         },
       },
@@ -87,6 +89,7 @@ export async function POST(req: Request) {
     if (err.name === 'ZodError') {
       return NextResponse.json({ error: err.errors[0].message }, { status: 400 })
     }
+    console.error('[register] error:', err?.message, err?.code, err?.stack?.slice(0, 500))
     return NextResponse.json({ error: 'Registration failed' }, { status: 500 })
   }
 }
