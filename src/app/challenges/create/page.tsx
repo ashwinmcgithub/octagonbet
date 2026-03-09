@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Coins, Gift } from 'lucide-react'
+import { ArrowLeft, Coins, Gift, Eye, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +16,7 @@ export default function CreateChallengePage() {
   const [prizeType, setPrizeType] = useState<'money' | 'item'>('money')
   const [prizeAmount, setPrizeAmount] = useState('')
   const [prizeItem, setPrizeItem] = useState('')
+  const [addWitness, setAddWitness] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -34,6 +35,7 @@ export default function CreateChallengePage() {
           prizeType,
           prizeAmount: prizeType === 'money' ? parseFloat(prizeAmount) : undefined,
           prizeItem: prizeType === 'item' ? prizeItem : undefined,
+          addWitness,
         }),
       })
       const data = await res.json()
@@ -62,7 +64,7 @@ export default function CreateChallengePage() {
 
           {/* Title */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-muted uppercase tracking-wider">What's the challenge?</label>
+            <label className="text-xs font-bold text-muted uppercase tracking-wider">What&apos;s the challenge?</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -136,14 +138,14 @@ export default function CreateChallengePage() {
                   className="w-full rounded-xl border border-border bg-surface pl-10 pr-4 py-3 text-sm text-text-primary placeholder:text-muted focus:border-primary focus:outline-none"
                 />
               </div>
-              <p className="text-[11px] text-muted">Each person on both teams puts in this amount. Winner's team splits the full pot.</p>
+              <p className="text-[11px] text-muted">Each person on both teams puts in this amount. Winner&apos;s team splits the full pot.</p>
               {prizeAmount && (
                 <p className="text-[11px] text-win font-semibold">Your balance: FC {(session.user.balance ?? 0).toLocaleString()} → FC {((session.user.balance ?? 0) - parseFloat(prizeAmount || '0')).toLocaleString()} after locking</p>
               )}
             </div>
           ) : (
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted uppercase tracking-wider">What's the prize?</label>
+              <label className="text-xs font-bold text-muted uppercase tracking-wider">What&apos;s the prize?</label>
               <input
                 value={prizeItem}
                 onChange={(e) => setPrizeItem(e.target.value)}
@@ -154,6 +156,31 @@ export default function CreateChallengePage() {
               <p className="text-[11px] text-muted">No money involved — loser owes the winner this item.</p>
             </div>
           )}
+
+          {/* Witness toggle */}
+          <div className="rounded-xl border border-border bg-surface overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setAddWitness(!addWitness)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface-2 transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <Eye className="h-4 w-4 text-muted" />
+                <span className="text-sm font-semibold text-text-secondary">Add a witness (optional)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {addWitness && <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 rounded-full px-2 py-0.5">ON</span>}
+                {addWitness ? <ChevronUp className="h-4 w-4 text-muted" /> : <ChevronDown className="h-4 w-4 text-muted" />}
+              </div>
+            </button>
+            {addWitness && (
+              <div className="border-t border-border bg-surface-2 px-4 py-3 text-xs text-muted space-y-1">
+                <p className="font-semibold text-text-secondary">How witnesses work:</p>
+                <p>A witness can confirm the result if there&apos;s a dispute. Share the witness code with them after creating the challenge.</p>
+                <p>If you dispute a proof claim and a witness is assigned, they get to decide the outcome instead of an admin.</p>
+              </div>
+            )}
+          </div>
 
           {/* Info box */}
           <div className="rounded-xl border border-border bg-surface-2 p-4 text-xs text-muted space-y-1.5">

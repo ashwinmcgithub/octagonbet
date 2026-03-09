@@ -2,21 +2,43 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { runPayout } from '@/lib/challenge-payout'
+
+async function fetchChallenge(id: string) {
+  return prisma.challenge.findUnique({
+    where: { id },
+    include: {
+      creator: { select: { id: true, name: true, image: true, reputation: true } },
+      participants: { include: { user: { select: { id: true, name: true, image: true, reputation: true } } } },
+      proofs: { include: { submitter: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } },
+    },
+  })
+}
 
 // GET /api/challenges/[id]
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const challenge = await prisma.challenge.findUnique({
-    where: { id: params.id },
-    include: {
-      creator: { select: { id: true, name: true, image: true } },
-      participants: { include: { user: { select: { id: true, name: true, image: true } } } },
-      proofs: { include: { submitter: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } },
-    },
-  })
+  let challenge = await fetchChallenge(params.id)
   if (!challenge) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // Auto-resolve if deadline has passed
+  if (
+    challenge.status === 'awaiting_resolution' &&
+    challenge.resolveDeadline &&
+    challenge.resolveDeadline < new Date()
+  ) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await runPayout(tx, challenge!, challenge!.winningSide!, {})
+      })
+      // Re-fetch the updated challenge
+      challenge = await fetchChallenge(params.id)
+    } catch {
+      // If payout fails (e.g. already resolved), just return current state
+    }
+  }
 
   return NextResponse.json(challenge)
 }

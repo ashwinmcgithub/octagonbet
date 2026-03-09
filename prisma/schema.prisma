@@ -15,6 +15,7 @@ model User {
   password      String?
   phone         String?
   balance       Float     @default(1000)
+  reputation    Int       @default(100)
   role          String    @default("user")
   referralCode  String?   @unique
   referredBy    String?
@@ -159,19 +160,22 @@ model GroupBetShare {
 
 // ── P2P / team challenges — bet on anything ─────────────────────────────────
 model Challenge {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  creatorId   String
-  prizeType   String   // "money" | "item"
-  prizeAmount Float?   // FC stake per person (money bets)
-  prizeItem   String?  // item description (item bets)
-  status      String   @default("open")
-  // open → active → awaiting_resolution → completed | disputed | cancelled
-  winningSide String?  // "a" | "b"
-  inviteCode  String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  creatorId       String
+  prizeType       String   // "money" | "item"
+  prizeAmount     Float?   // FC stake per person (money bets)
+  prizeItem       String?  // item description (item bets)
+  status          String   @default("open")
+  // open → active → awaiting_resolution → completed | disputed | witness_review | cancelled
+  winningSide     String?  // "a" | "b"
+  inviteCode      String   @unique
+  resolveDeadline DateTime?
+  witnessCode     String?  @unique
+  witnessId       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   creator      User                   @relation("ChallengeCreator", fields: [creatorId], references: [id])
   participants ChallengeParticipant[]
@@ -198,6 +202,7 @@ model ChallengeProof {
   submittedBy String
   claimSide   String   // "a" | "b" — which side is claiming win
   description String
+  mediaUrls   String[]
   createdAt   DateTime @default(now())
 
   challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)

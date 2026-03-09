@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Copy, Check, Swords, Trophy, AlertTriangle, Zap, Clock, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Swords, Trophy, AlertTriangle, Zap, Clock, MessageSquare, Eye, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
 
@@ -12,19 +12,75 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface Participant {
   id: string; side: string; userId: string; payout: number | null
-  user: { id: string; name: string | null; image: string | null }
+  user: { id: string; name: string | null; image: string | null; reputation: number }
 }
 interface Proof {
-  id: string; claimSide: string; description: string; createdAt: string
+  id: string; claimSide: string; description: string; createdAt: string; mediaUrls: string[]
   submitter: { id: string; name: string | null }
 }
 interface Challenge {
   id: string; title: string; description: string | null; inviteCode: string
   prizeType: string; prizeAmount: number | null; prizeItem: string | null
   status: string; winningSide: string | null; creatorId: string
-  creator: { id: string; name: string | null; image: string | null }
+  resolveDeadline: string | null
+  witnessCode: string | null
+  witnessId: string | null
+  creator: { id: string; name: string | null; image: string | null; reputation: number }
   participants: Participant[]
   proofs: Proof[]
+}
+
+// ── Reputation badge ───────────────────────────────────────────────────────────
+function RepBadge({ score }: { score: number }) {
+  const color = score >= 80 ? 'text-win' : score >= 50 ? 'text-amber-400' : 'text-primary'
+  const bg = score >= 80 ? 'bg-win/10' : score >= 50 ? 'bg-amber-400/10' : 'bg-primary/10'
+  return (
+    <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold', bg, color)}>
+      <Shield className="h-2.5 w-2.5" />
+      {score}
+    </span>
+  )
+}
+
+// ── Media URL display ─────────────────────────────────────────────────────────
+function MediaLink({ url }: { url: string }) {
+  const isVideo = /youtube\.com|youtu\.be|instagram\.com|tiktok\.com/i.test(url)
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+    >
+      <span>{isVideo ? '🎥' : '🖼️'}</span>
+      <span className="truncate max-w-[200px]">{url}</span>
+    </a>
+  )
+}
+
+// ── Countdown timer ───────────────────────────────────────────────────────────
+function Countdown({ deadline }: { deadline: string }) {
+  const [label, setLabel] = useState('')
+
+  useEffect(() => {
+    function update() {
+      const diff = new Date(deadline).getTime() - Date.now()
+      if (diff <= 0) { setLabel('Resolving…'); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      setLabel(`Auto-resolves in ${h}h ${m}m`)
+    }
+    update()
+    const timer = setInterval(update, 60000)
+    return () => clearInterval(timer)
+  }, [deadline])
+
+  return (
+    <span className="flex items-center gap-1 text-xs text-amber-400 font-semibold">
+      <Clock className="h-3 w-3" />
+      {label}
+    </span>
+  )
 }
 
 // ── Confetti particles ────────────────────────────────────────────────────────
@@ -71,18 +127,13 @@ function WinCelebration({ prizeType, prizeItem, prizeAmount, loserNames, onClose
           className="relative w-full max-w-sm rounded-3xl border border-win/30 bg-surface p-8 text-center animate-slide-up shadow-[0_0_120px_rgba(34,197,94,0.3)]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Trophy */}
           <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-win/20 border-2 border-win/40">
             <span className="text-5xl">🏆</span>
           </div>
-
           <h2 className="text-3xl font-black text-win mb-2">YOU WON!</h2>
-
           {prizeType === 'money' ? (
             <div>
-              <p className="text-4xl font-black text-text-primary mt-2">
-                FC {formatCurrency(prizeAmount ?? 0)}
-              </p>
+              <p className="text-4xl font-black text-text-primary mt-2">FC {formatCurrency(prizeAmount ?? 0)}</p>
               <p className="text-sm text-muted mt-1">has been added to your wallet</p>
             </div>
           ) : (
@@ -92,7 +143,6 @@ function WinCelebration({ prizeType, prizeItem, prizeAmount, loserNames, onClose
               <p className="text-xs text-muted mt-2">Make sure you collect! 😄</p>
             </div>
           )}
-
           <button
             onClick={onClose}
             className="mt-6 w-full rounded-2xl bg-win hover:bg-win/90 py-3 text-sm font-black text-white transition-colors"
@@ -119,9 +169,7 @@ function OweNotification({ prizeType, prizeItem, prizeAmount, winnerNames, onClo
         <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
           <span className="text-4xl">😬</span>
         </div>
-
         <h2 className="text-2xl font-black text-text-primary mb-2">You Lost</h2>
-
         {prizeType === 'money' ? (
           <div>
             <p className="text-sm text-muted">Your stake has been paid out to the winners.</p>
@@ -134,7 +182,6 @@ function OweNotification({ prizeType, prizeItem, prizeAmount, winnerNames, onClo
             <p className="text-xs text-muted mt-2">Don&apos;t forget — a bet is a bet! 🤝</p>
           </div>
         )}
-
         <button
           onClick={onClose}
           className="mt-6 w-full rounded-2xl border border-border bg-surface-2 hover:bg-surface py-3 text-sm font-semibold text-text-secondary transition-colors"
@@ -156,7 +203,9 @@ export default function ChallengePage() {
   const { data: challenge, mutate } = useSWR<Challenge>(`/api/challenges/${id}`, fetcher, { refreshInterval: 4000 })
 
   const [copied, setCopied] = useState(false)
+  const [witnessCopied, setWitnessCopied] = useState(false)
   const [proofText, setProofText] = useState('')
+  const [mediaUrls, setMediaUrls] = useState(['', '', ''])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showCelebration, setShowCelebration] = useState(false)
@@ -189,6 +238,8 @@ export default function ChallengePage() {
   const sideB = challenge.participants.filter((p) => p.side === 'b')
   const iAmIn = !!me
   const latestProof = challenge.proofs[0]
+  const iAmWitness = challenge.witnessId === session.user.id
+  const isCreator = challenge.creatorId === session.user.id
 
   const iWon = challenge.status === 'completed' && mySide === challenge.winningSide
   const iLost = challenge.status === 'completed' && mySide && mySide !== challenge.winningSide
@@ -213,15 +264,21 @@ export default function ChallengePage() {
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
+  async function copyWitnessCode() {
+    await navigator.clipboard.writeText(challenge!.witnessCode!)
+    setWitnessCopied(true); setTimeout(() => setWitnessCopied(false), 2000)
+  }
+
   async function handleClaim(e: React.FormEvent) {
     e.preventDefault(); setLoading(true); setError('')
     try {
+      const filteredUrls = mediaUrls.filter((u) => u.trim())
       const res = await fetch(`/api/challenges/${id}/claim`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: proofText }),
+        body: JSON.stringify({ description: proofText, mediaUrls: filteredUrls }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
-      setProofText(''); mutate()
+      setProofText(''); setMediaUrls(['', '', '']); mutate()
     } finally { setLoading(false) }
   }
 
@@ -231,6 +288,19 @@ export default function ChallengePage() {
       const res = await fetch(`/api/challenges/${id}/resolve`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
+      })
+      if (!res.ok) { const d = await res.json(); setError(d.error); return }
+      mutate()
+    } finally { setLoading(false) }
+  }
+
+  async function handleWitnessResolve(winningSide: 'a' | 'b') {
+    if (!confirm(`Confirm: Team ${winningSide.toUpperCase()} wins this challenge?`)) return
+    setLoading(true); setError('')
+    try {
+      const res = await fetch(`/api/challenges/${id}/witness-resolve`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ winningSide }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
       mutate()
@@ -248,12 +318,12 @@ export default function ChallengePage() {
 
   const statusColors: Record<string, string> = {
     open: 'text-muted', active: 'text-live', awaiting_resolution: 'text-amber-400',
-    completed: 'text-win', disputed: 'text-primary', cancelled: 'text-muted',
+    completed: 'text-win', disputed: 'text-primary', witness_review: 'text-purple-400', cancelled: 'text-muted',
   }
   const statusLabels: Record<string, string> = {
     open: 'Open — waiting for opponents', active: 'Live',
     awaiting_resolution: 'Awaiting Resolution', completed: 'Completed',
-    disputed: 'Disputed — admin reviewing', cancelled: 'Cancelled',
+    disputed: 'Disputed — admin reviewing', witness_review: 'Witness Review', cancelled: 'Cancelled',
   }
 
   return (
@@ -344,7 +414,7 @@ export default function ChallengePage() {
               {sideA.length === 0 ? (
                 <p className="text-xs text-muted text-center">—</p>
               ) : sideA.map((p) => (
-                <div key={p.id} className="flex items-center gap-1.5 justify-center mb-1">
+                <div key={p.id} className="flex items-center gap-1.5 justify-center mb-1 flex-wrap">
                   <div className="h-5 w-5 rounded-full bg-blue-500/20 flex items-center justify-center text-[9px] font-bold text-blue-400">
                     {p.user.name?.[0]?.toUpperCase() ?? 'U'}
                   </div>
@@ -352,6 +422,7 @@ export default function ChallengePage() {
                     {p.user.name?.split(' ')[0]}
                     {p.userId === session.user.id && <span className="text-blue-400 ml-0.5">(you)</span>}
                   </span>
+                  <RepBadge score={p.user.reputation} />
                 </div>
               ))}
               {challenge.status === 'completed' && challenge.winningSide === 'a' && (
@@ -371,7 +442,7 @@ export default function ChallengePage() {
               {sideB.length === 0 ? (
                 <p className="text-xs text-muted text-center italic">Waiting…</p>
               ) : sideB.map((p) => (
-                <div key={p.id} className="flex items-center gap-1.5 justify-center mb-1">
+                <div key={p.id} className="flex items-center gap-1.5 justify-center mb-1 flex-wrap">
                   <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">
                     {p.user.name?.[0]?.toUpperCase() ?? 'U'}
                   </div>
@@ -379,6 +450,7 @@ export default function ChallengePage() {
                     {p.user.name?.split(' ')[0]}
                     {p.userId === session.user.id && <span className="text-primary ml-0.5">(you)</span>}
                   </span>
+                  <RepBadge score={p.user.reputation} />
                 </div>
               ))}
               {challenge.status === 'completed' && challenge.winningSide === 'b' && (
@@ -403,17 +475,95 @@ export default function ChallengePage() {
             </div>
           )}
 
+          {/* Witness section — only visible to creator */}
+          {challenge.witnessCode && isCreator && (
+            <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-purple-400" />
+                <p className="text-xs font-bold text-purple-400 uppercase tracking-wider">Witness Code</p>
+              </div>
+              {challenge.witnessId ? (
+                <p className="text-xs text-muted">A witness has joined this challenge.</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 rounded-lg border border-purple-500/20 bg-surface-2 px-4 py-2.5">
+                      <p className="text-base font-black text-text-primary tracking-[0.3em]">{challenge.witnessCode}</p>
+                    </div>
+                    <button onClick={copyWitnessCode} className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors">
+                      {witnessCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted">Share this code with your witness. They can join at /challenges and use this code. If both sides dispute, the witness decides the winner.</p>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Proof submitted */}
           {latestProof && (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-                <p className="text-sm font-bold text-amber-400">
-                  Team {latestProof.claimSide.toUpperCase()} claims victory
-                </p>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400" />
+                  <p className="text-sm font-bold text-amber-400">
+                    Team {latestProof.claimSide.toUpperCase()} claims victory
+                  </p>
+                </div>
+                {challenge.status === 'awaiting_resolution' && challenge.resolveDeadline && (
+                  <Countdown deadline={challenge.resolveDeadline} />
+                )}
               </div>
-              <p className="text-sm text-text-secondary">"{latestProof.description}"</p>
-              <p className="text-[10px] text-muted mt-1">— {latestProof.submitter.name}</p>
+              <p className="text-sm text-text-secondary">&quot;{latestProof.description}&quot;</p>
+              {latestProof.mediaUrls && latestProof.mediaUrls.length > 0 && (
+                <div className="space-y-1 pt-1 border-t border-amber-500/10">
+                  <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Proof links</p>
+                  {latestProof.mediaUrls.map((url, i) => (
+                    <MediaLink key={i} url={url} />
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-muted">— {latestProof.submitter.name}</p>
+            </div>
+          )}
+
+          {/* Witness review banner */}
+          {challenge.status === 'witness_review' && !iAmWitness && (
+            <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-4 flex items-start gap-3">
+              <Eye className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-purple-400 text-sm">Waiting for witness decision</p>
+                <p className="text-xs text-muted mt-0.5">The assigned witness will review and decide the outcome.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Witness action panel */}
+          {challenge.status === 'witness_review' && iAmWitness && (
+            <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-purple-400" />
+                <p className="font-bold text-purple-400">Witness Decision Required</p>
+              </div>
+              <p className="text-xs text-text-secondary">Review the proof above and decide which team won this challenge. Your decision is final.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleWitnessResolve('a')}
+                  disabled={loading}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 py-3.5 text-sm font-bold text-blue-400 transition-all disabled:opacity-50"
+                >
+                  <span className="text-xl">🏆</span>
+                  Team A Won
+                </button>
+                <button
+                  onClick={() => handleWitnessResolve('b')}
+                  disabled={loading}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/20 py-3.5 text-sm font-bold text-primary transition-all disabled:opacity-50"
+                >
+                  <span className="text-xl">🏆</span>
+                  Team B Won
+                </button>
+              </div>
             </div>
           )}
 
@@ -481,6 +631,24 @@ export default function ChallengePage() {
                 required
                 className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm text-text-primary placeholder:text-muted focus:border-win focus:outline-none resize-none"
               />
+              {/* Media URL inputs */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Proof links (optional)</p>
+                {[0, 1, 2].map((i) => (
+                  <input
+                    key={i}
+                    type="url"
+                    value={mediaUrls[i]}
+                    onChange={(e) => {
+                      const updated = [...mediaUrls]
+                      updated[i] = e.target.value
+                      setMediaUrls(updated)
+                    }}
+                    placeholder={`Proof link ${i + 1} (YouTube, Instagram, TikTok, image…)`}
+                    className="w-full rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-win focus:outline-none"
+                  />
+                ))}
+              </div>
               <button
                 type="submit"
                 disabled={loading || !proofText.trim()}
@@ -517,7 +685,11 @@ export default function ChallengePage() {
                   Dispute
                 </button>
               </div>
-              <p className="text-[10px] text-muted text-center">If you dispute, an admin will review and decide the outcome.</p>
+              <p className="text-[10px] text-muted text-center">
+                {challenge.witnessId
+                  ? 'If you dispute, the assigned witness will decide the outcome.'
+                  : 'If you dispute, an admin will review and decide the outcome.'}
+              </p>
             </div>
           )}
 
@@ -533,7 +705,7 @@ export default function ChallengePage() {
           )}
 
           {/* Not a participant */}
-          {!iAmIn && challenge.status !== 'cancelled' && challenge.status !== 'completed' && (
+          {!iAmIn && !iAmWitness && challenge.status !== 'cancelled' && challenge.status !== 'completed' && (
             <div className="rounded-xl border border-border bg-surface p-4 text-center">
               <Swords className="h-8 w-8 text-muted mx-auto mb-2" />
               <p className="text-sm text-text-secondary font-semibold">You&apos;re not in this challenge</p>

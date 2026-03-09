@@ -8,8 +8,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { description } = await req.json()
+  const { description, mediaUrls } = await req.json()
   if (!description?.trim()) return NextResponse.json({ error: 'Proof description required' }, { status: 400 })
+
+  // Validate mediaUrls — accept up to 3 string URLs
+  const sanitizedMediaUrls: string[] = Array.isArray(mediaUrls)
+    ? mediaUrls.filter((u: unknown) => typeof u === 'string' && u.trim()).slice(0, 3).map((u: string) => u.trim())
+    : []
 
   const challenge = await prisma.challenge.findUnique({
     where: { id: params.id },
@@ -21,6 +26,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const me = challenge.participants.find((p) => p.userId === session.user.id)
   if (!me) return NextResponse.json({ error: 'You are not in this challenge' }, { status: 403 })
 
+  const resolveDeadline = new Date(Date.now() + 48 * 60 * 60 * 1000)
+
   await prisma.$transaction([
     prisma.challengeProof.create({
       data: {
@@ -28,11 +35,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         submittedBy: session.user.id,
         claimSide: me.side,
         description: description.trim(),
+        mediaUrls: sanitizedMediaUrls,
       },
     }),
     prisma.challenge.update({
       where: { id: params.id },
-      data: { status: 'awaiting_resolution', winningSide: me.side },
+      data: { status: 'awaiting_resolution', winningSide: me.side, resolveDeadline },
     }),
   ])
 

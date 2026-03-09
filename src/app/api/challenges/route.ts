@@ -14,8 +14,8 @@ export async function GET() {
       participants: { some: { userId: session.user.id } },
     },
     include: {
-      creator: { select: { id: true, name: true, image: true } },
-      participants: { include: { user: { select: { id: true, name: true, image: true } } } },
+      creator: { select: { id: true, name: true, image: true, reputation: true } },
+      participants: { include: { user: { select: { id: true, name: true, image: true, reputation: true } } } },
       proofs: { include: { submitter: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' }, take: 1 },
     },
     orderBy: { updatedAt: 'desc' },
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, description, prizeType, prizeAmount, prizeItem } = await req.json()
+  const { title, description, prizeType, prizeAmount, prizeItem, addWitness } = await req.json()
 
   if (!title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (prizeType !== 'money' && prizeType !== 'item') return NextResponse.json({ error: 'Invalid prize type' }, { status: 400 })
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   const inviteCode = nanoid(8).toUpperCase()
+  const witnessCode = addWitness ? nanoid(8).toUpperCase() : undefined
 
   const challenge = await prisma.$transaction(async (tx) => {
     if (prizeType === 'money') {
@@ -60,11 +61,12 @@ export async function POST(req: NextRequest) {
         prizeAmount: prizeType === 'money' ? prizeAmount : null,
         prizeItem: prizeType === 'item' ? prizeItem.trim() : null,
         inviteCode,
+        witnessCode: witnessCode ?? null,
         participants: { create: { userId: session.user.id, side: 'a' } },
       },
       include: {
-        creator: { select: { id: true, name: true, image: true } },
-        participants: { include: { user: { select: { id: true, name: true, image: true } } } },
+        creator: { select: { id: true, name: true, image: true, reputation: true } },
+        participants: { include: { user: { select: { id: true, name: true, image: true, reputation: true } } } },
         proofs: true,
       },
     })

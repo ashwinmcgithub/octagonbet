@@ -5,7 +5,7 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Swords, Plus, Hash, ArrowRight, Trophy, Clock, Zap, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Swords, Plus, Hash, ArrowRight, Trophy, Clock, Zap, AlertTriangle, CheckCircle2, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 
@@ -13,7 +13,18 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface Participant {
   id: string; side: string; userId: string; payout: number | null
-  user: { id: string; name: string | null; image: string | null }
+  user: { id: string; name: string | null; image: string | null; reputation: number }
+}
+
+function RepBadge({ score }: { score: number }) {
+  const color = score >= 80 ? 'text-win' : score >= 50 ? 'text-amber-400' : 'text-primary'
+  const bg = score >= 80 ? 'bg-win/10' : score >= 50 ? 'bg-amber-400/10' : 'bg-primary/10'
+  return (
+    <span className={cn('inline-flex items-center gap-0.5 rounded-full px-1 py-0.5 text-[8px] font-bold', bg, color)}>
+      <Shield className="h-2 w-2" />
+      {score}
+    </span>
+  )
 }
 interface Challenge {
   id: string; title: string; description: string | null
@@ -168,15 +179,25 @@ export default function ChallengesPage() {
                         )}
                       </div>
                       <p className="font-bold text-text-primary truncate">{c.title}</p>
-                      <div className="flex items-center gap-2 mt-1.5 text-xs text-muted">
-                        <span className="flex items-center gap-1">
+                      <div className="flex items-center gap-2 mt-1.5 text-xs text-muted flex-wrap">
+                        <span className="flex items-center gap-1 flex-wrap">
                           <span className="font-semibold text-blue-400">A:</span>
-                          {sideA.map(p => p.user.name?.split(' ')[0]).join(', ') || '—'}
+                          {sideA.length === 0 ? '—' : sideA.map(p => (
+                            <span key={p.id} className="flex items-center gap-0.5">
+                              {p.user.name?.split(' ')[0]}
+                              <RepBadge score={p.user.reputation} />
+                            </span>
+                          ))}
                         </span>
                         <span className="text-border">vs</span>
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 flex-wrap">
                           <span className="font-semibold text-primary">B:</span>
-                          {sideB.map(p => p.user.name?.split(' ')[0]).join(', ') || 'waiting…'}
+                          {sideB.length === 0 ? 'waiting…' : sideB.map(p => (
+                            <span key={p.id} className="flex items-center gap-0.5">
+                              {p.user.name?.split(' ')[0]}
+                              <RepBadge score={p.user.reputation} />
+                            </span>
+                          ))}
                         </span>
                       </div>
                     </div>
