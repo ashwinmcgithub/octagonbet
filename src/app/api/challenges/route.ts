@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, description, prizeType, prizeAmount, prizeItem, addWitness } = await req.json()
+  const { title, description, prizeType, prizeAmount, prizeItem, addWitness, verificationSource, verificationGameUrl, teamAUsername, teamBUsername } = await req.json()
 
   if (!title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
   if (prizeType !== 'money' && prizeType !== 'item') return NextResponse.json({ error: 'Invalid prize type' }, { status: 400 })
@@ -62,6 +62,10 @@ export async function POST(req: NextRequest) {
         prizeItem: prizeType === 'item' ? prizeItem.trim() : null,
         inviteCode,
         witnessCode: witnessCode ?? null,
+        verificationSource: verificationSource || null,
+        verificationGameUrl: verificationGameUrl?.trim() || null,
+        teamAUsername: teamAUsername?.trim() || null,
+        teamBUsername: teamBUsername?.trim() || null,
         participants: { create: { userId: session.user.id, side: 'a' } },
       },
       include: {

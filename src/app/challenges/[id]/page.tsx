@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Copy, Check, Swords, Trophy, AlertTriangle, Zap, Clock, MessageSquare, Eye, Shield } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Swords, Trophy, AlertTriangle, Zap, Clock, MessageSquare, Eye, Shield, Gamepad2, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
 
@@ -25,6 +25,10 @@ interface Challenge {
   resolveDeadline: string | null
   witnessCode: string | null
   witnessId: string | null
+  verificationSource: string | null
+  verificationGameUrl: string | null
+  teamAUsername: string | null
+  teamBUsername: string | null
   creator: { id: string; name: string | null; image: string | null; reputation: number }
   participants: Participant[]
   proofs: Proof[]
@@ -210,6 +214,8 @@ export default function ChallengePage() {
   const [error, setError] = useState('')
   const [showCelebration, setShowCelebration] = useState(false)
   const [showOwe, setShowOwe] = useState(false)
+  const [verifyMsg, setVerifyMsg] = useState<string | null>(null)
+  const [verifyLoading, setVerifyLoading] = useState(false)
   const prevStatus = useRef<string | null>(null)
 
   // Trigger celebration/owe overlay when status transitions to completed
@@ -305,6 +311,16 @@ export default function ChallengePage() {
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
       mutate()
     } finally { setLoading(false) }
+  }
+
+  async function handleVerify() {
+    setVerifyLoading(true); setVerifyMsg(null)
+    try {
+      const res = await fetch(`/api/challenges/${id}/verify`, { method: 'POST' })
+      const data = await res.json()
+      if (data.type === 'resolved') { mutate(); setVerifyMsg(null) }
+      else setVerifyMsg(data.message ?? data.error ?? 'Unknown response')
+    } finally { setVerifyLoading(false) }
   }
 
   async function handleCancel() {
@@ -403,6 +419,62 @@ export default function ChallengePage() {
             <div className="rounded-xl border border-border bg-surface p-4">
               <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5">Details</p>
               <p className="text-sm text-text-secondary">{challenge.description}</p>
+            </div>
+          )}
+
+          {/* Game verification panel */}
+          {challenge.verificationSource && (
+            <div className="rounded-xl border border-win/20 bg-win/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Gamepad2 className="h-4 w-4 text-win" />
+                <p className="text-xs font-bold text-win uppercase tracking-wider">Game Verification</p>
+                <span className="ml-auto text-[10px] font-bold text-win bg-win/10 rounded-full px-2 py-0.5 uppercase">
+                  {challenge.verificationSource}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {challenge.verificationGameUrl && (
+                  <a
+                    href={challenge.verificationGameUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{challenge.verificationGameUrl}</span>
+                  </a>
+                )}
+                {(challenge.teamAUsername || challenge.teamBUsername) && (
+                  <div className="flex items-center gap-3 text-[11px] text-muted">
+                    {challenge.teamAUsername && (
+                      <span><span className="text-blue-400 font-bold">A:</span> {challenge.teamAUsername}</span>
+                    )}
+                    {challenge.teamBUsername && (
+                      <span><span className="text-primary font-bold">B:</span> {challenge.teamBUsername}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Verify Result button */}
+              {iAmIn && ['active', 'awaiting_resolution'].includes(challenge.status) && (
+                <div className="space-y-2 pt-1">
+                  <button
+                    onClick={handleVerify}
+                    disabled={verifyLoading}
+                    className="w-full rounded-xl bg-win hover:bg-win/90 py-3 text-sm font-black text-white transition-colors disabled:opacity-50"
+                  >
+                    {verifyLoading ? 'Checking game…' : '🔍 Verify Result'}
+                  </button>
+                  {verifyMsg && (
+                    <p className="text-xs text-amber-400 text-center">{verifyMsg}</p>
+                  )}
+                  <p className="text-[10px] text-muted text-center">
+                    {challenge.verificationSource === 'link'
+                      ? 'Opens the game link so you can check the result manually'
+                      : 'Auto-detects the winner from the game API'}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
