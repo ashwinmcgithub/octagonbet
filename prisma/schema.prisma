@@ -33,6 +33,7 @@ model User {
   challengesCreated     Challenge[]          @relation("ChallengeCreator")
   challengeParticipants ChallengeParticipant[]
   challengeProofs       ChallengeProof[]
+  marketBets            MarketBet[]
 }
 
 model Account {
@@ -171,10 +172,16 @@ model Challenge {
   // open → active → awaiting_resolution → completed | disputed | witness_review | cancelled
   winningSide     String?  // "a" | "b"
   inviteCode      String   @unique
-  resolveDeadline DateTime?
-  witnessCode     String?  @unique
-  witnessId       String?
-  createdAt       DateTime @default(now())
+  resolveDeadline     DateTime?
+  witnessCode         String?   @unique
+  witnessId           String?
+  // Game verification
+  verificationSource  String?   // "chess.com" | "lichess" | "link"
+  verificationGameUrl String?   // full URL to the game
+  verificationGameId  String?   // extracted game ID
+  teamAUsername       String?   // Team A's in-game username
+  teamBUsername       String?   // Team B's in-game username
+  createdAt           DateTime  @default(now())
   updatedAt       DateTime @updatedAt
 
   creator      User                   @relation("ChallengeCreator", fields: [creatorId], references: [id])
@@ -207,6 +214,56 @@ model ChallengeProof {
 
   challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   submitter User      @relation(fields: [submittedBy], references: [id], onDelete: Cascade)
+}
+
+// ── Multi-sport events ──────────────────────────────────────────────────────
+model SportEvent {
+  id           String   @id @default(cuid())
+  externalId   String   @unique
+  sport        String   // cricket|football|mma|f1|kabaddi|tennis|badminton|chess|nba|boxing|wwe
+  league       String   // IPL|EPL|UFC|PKL|...
+  eventName    String?
+  homeTeam     String
+  awayTeam     String
+  commenceTime DateTime
+  status       String   @default("upcoming") // upcoming|live|completed|cancelled
+  result       String?  // home|away|draw|no_result
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  markets      Market[]
+}
+
+model Market {
+  id         String   @id @default(cuid())
+  eventId    String
+  marketType String   // moneyline|toss_winner|prop_yes_no
+  label      String
+  status     String   @default("open") // open|settled|void
+  options    Json     // [{key,label,odds}]
+  resultKey  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  event      SportEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bets       MarketBet[]
+}
+
+model MarketBet {
+  id        String   @id @default(cuid())
+  userId    String
+  marketId  String
+  optionKey String
+  amount    Float
+  odds      Float
+  payout    Float?
+  status    String   @default("pending") // pending|won|lost|void
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  market    Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
 }
 
 model Bet {

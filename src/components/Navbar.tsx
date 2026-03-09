@@ -4,7 +4,7 @@ import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
-import { Flame, Wallet, BookOpen, ChevronDown, LogOut, Shield, Menu, X, Users, Swords } from 'lucide-react'
+import { Flame, Wallet, BookOpen, ChevronDown, LogOut, Shield, Menu, X, Users, Swords, Trophy } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
 export default function Navbar() {
@@ -63,6 +63,13 @@ export default function Navbar() {
                 >
                   <Swords className="h-4 w-4" />
                   Challenges
+                </Link>
+                <Link
+                  href="/leaderboard"
+                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
+                >
+                  <Trophy className="h-4 w-4" />
+                  Leaderboard
                 </Link>
               </>
             )}
@@ -200,6 +207,13 @@ export default function Navbar() {
               className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
             >
               Challenges
+            </Link>
+            <Link
+              href="/leaderboard"
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
+            >
+              Leaderboard
             </Link>
           </div>
         )}
