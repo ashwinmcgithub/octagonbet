@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { TrendingUp, RefreshCw, Trophy } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { TrendingUp, RefreshCw, Trophy, Loader2 } from 'lucide-react'
 import FightCard from '@/components/FightCard'
 import SportEventCard, { SPORT_META, type SportEvent } from '@/components/SportEventCard'
 import { cn } from '@/lib/utils'
@@ -36,6 +36,9 @@ const SPORT_TABS = [
   { key: 'wwe',       label: 'WWE',        emoji: '💪' },
 ]
 
+// Sports that can be auto-fetched from The Odds API
+const AUTO_FETCH_SPORTS = new Set(['cricket', 'football', 'tennis', 'nba', 'boxing', 'f1'])
+
 const STATUS_ORDER: Record<string, number> = { live: 0, upcoming: 1, completed: 2 }
 
 export default function HomePage() {
@@ -45,54 +48,123 @@ export default function HomePage() {
   const [fights, setFights] = useState<Fight[]>([])
   const [events, setEvents] = useState<SportEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetching, setFetching] = useState(false) // background odds fetch
   const [syncing, setSyncing] = useState(false)
+
+  // Track which sports have been fetched this session to avoid repeated API calls
+  const fetchedSports = useRef<Set<string>>(new Set())
+
+  const loadEvents = useCallback(async (sport: string, status: string) => {
+    if (sport === 'mma') { setEvents([]); return }
+    const s = sport === 'all' ? 'all' : sport
+    try {
+      const res = await fetch(`/api/events?sport=${s}&status=${status}`)
+      const data = await res.json()
+      setEvents(data as SportEvent[])
+      return (data as SportEvent[]).length
+    } catch { setEvents([]); return 0 }
+  }, [])
+
+  const loadFights = useCallback(async (status: string) => {
+    try {
+      const res = await fetch(`/api/fights?status=${status}`)
+      const data = await res.json()
+      const sorted = [...(data as Fight[])].sort((a, b) =>
+        (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
+      )
+      setFights(sorted)
+    } catch { setFights([]) }
+  }, [])
+
+  // Auto-fetch from Odds API for supported sports when DB has no events
+  const autoFetch = useCallback(async (sport: string) => {
+    const sportsToFetch = sport === 'all'
+      ? Array.from(AUTO_FETCH_SPORTS)
+      : AUTO_FETCH_SPORTS.has(sport) ? [sport] : []
+
+    const toFetch = sportsToFetch.filter(s => !fetchedSports.current.has(s))
+    if (toFetch.length === 0) return
+
+    setFetching(true)
+    try {
+      await Promise.all(
+        toFetch.map(s =>
+          fetch(`/api/sports/load?sport=${s}`).then(() => {
+            fetchedSports.current.add(s)
+          })
+        )
+      )
+    } finally {
+      setFetching(false)
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const isMMA = sportTab === 'mma' || sportTab === 'all'
-      const isNonMMA = sportTab !== 'mma'
+      const showMMA = sportTab === 'mma' || sportTab === 'all'
+      const showOther = sportTab !== 'mma'
 
-      const promises: Promise<void>[] = []
-
-      if (isMMA) {
-        promises.push(
-          fetch(`/api/fights?status=${statusFilter}`).then(r => r.json()).then(data => {
-            const sorted = [...(data as Fight[])].sort((a, b) =>
-              (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
-            )
-            setFights(sorted)
-          }).catch(() => setFights([]))
-        )
-      } else {
-        setFights([])
-      }
-
-      if (isNonMMA) {
-        const sport = sportTab === 'all' ? 'all' : sportTab
-        promises.push(
-          fetch(`/api/events?sport=${sport}&status=${statusFilter}`).then(r => r.json()).then(data => {
-            setEvents(data as SportEvent[])
-          }).catch(() => setEvents([]))
-        )
-      } else {
-        setEvents([])
-      }
-
-      await Promise.all(promises)
+      await Promise.all([
+        showMMA ? loadFights(statusFilter) : Promise.resolve(setFights([])),
+        showOther ? loadEvents(sportTab, statusFilter) : Promise.resolve(setEvents([])),
+      ])
     } finally {
       setLoading(false)
     }
-  }, [sportTab, statusFilter])
+  }, [sportTab, statusFilter, loadFights, loadEvents])
 
-  useEffect(() => { loadData() }, [loadData])
+  // On tab switch: load DB first, then auto-fetch if needed, then reload
+  useEffect(() => {
+    let cancelled = false
+
+    async function run() {
+      setLoading(true)
+      try {
+        const showMMA = sportTab === 'mma' || sportTab === 'all'
+        const showOther = sportTab !== 'mma'
+
+        const [, eventCount] = await Promise.all([
+          showMMA ? loadFights(statusFilter) : Promise.resolve(setFights([])),
+          showOther ? loadEvents(sportTab, statusFilter) : Promise.resolve(undefined),
+        ])
+
+        if (cancelled) return
+
+        // If no events found, auto-fetch from Odds API
+        if ((eventCount === 0 || eventCount === undefined) && showOther) {
+          await autoFetch(sportTab)
+          if (cancelled) return
+          // Reload after fetch
+          if (showOther) await loadEvents(sportTab, statusFilter)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    run()
+    return () => { cancelled = true }
+  }, [sportTab, statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function syncOdds() {
     setSyncing(true)
     try {
       await fetch('/api/odds/sync', { method: 'POST' })
+      // Also refresh the current sport
+      if (sportTab !== 'mma') {
+        fetchedSports.current.delete(sportTab)
+        await autoFetch(sportTab)
+      }
       await loadData()
     } finally { setSyncing(false) }
+  }
+
+  async function manualRefresh() {
+    if (sportTab !== 'mma' && AUTO_FETCH_SPORTS.has(sportTab)) {
+      fetchedSports.current.delete(sportTab)
+    }
+    await loadData()
   }
 
   const liveCount = fights.filter(f => f.status === 'live').length + events.filter(e => e.status === 'live').length
@@ -127,7 +199,7 @@ export default function HomePage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-6">
-        {/* Sport tab bar — horizontally scrollable */}
+        {/* Sport tab bar */}
         <div className="flex gap-1 overflow-x-auto pb-2 mb-4 scrollbar-hide">
           {SPORT_TABS.map((tab) => {
             const meta = SPORT_META[tab.key]
@@ -152,7 +224,7 @@ export default function HomePage() {
           })}
         </div>
 
-        {/* Status filters + sync */}
+        {/* Status filters + actions */}
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div className="flex gap-1 bg-surface border border-border rounded-xl p-1">
             {(['live', 'upcoming', 'all', 'completed'] as StatusFilter[]).map((f) => (
@@ -160,7 +232,7 @@ export default function HomePage() {
                 key={f}
                 onClick={() => setStatusFilter(f)}
                 className={cn(
-                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize',
+                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   statusFilter === f ? 'bg-primary text-white' : 'text-muted hover:text-text-primary'
                 )}
               >
@@ -173,14 +245,22 @@ export default function HomePage() {
               </button>
             ))}
           </div>
-          <button
-            onClick={syncOdds}
-            disabled={syncing}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-surface text-xs text-muted hover:text-text-primary hover:border-border-bright transition-all disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
-            {syncing ? 'Syncing…' : 'Sync Odds'}
-          </button>
+          <div className="flex items-center gap-2">
+            {fetching && (
+              <span className="flex items-center gap-1.5 text-xs text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Fetching matches…
+              </span>
+            )}
+            <button
+              onClick={sportTab === 'mma' || sportTab === 'all' ? syncOdds : manualRefresh}
+              disabled={syncing || fetching}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-surface text-xs text-muted hover:text-text-primary hover:border-border-bright transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', (syncing || fetching) && 'animate-spin')} />
+              {syncing ? 'Syncing…' : 'Refresh'}
+            </button>
+          </div>
         </div>
 
         {/* WWE disclaimer */}
@@ -198,22 +278,40 @@ export default function HomePage() {
         ) : totalItems === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">{SPORT_TABS.find(t => t.key === sportTab)?.emoji ?? '🏆'}</div>
-            <h3 className="text-lg font-bold text-text-primary mb-2">No {sportTab === 'all' ? '' : sportTab} events yet</h3>
-            <p className="text-muted text-sm max-w-xs mx-auto">
-              {sportTab === 'mma' ? "Click 'Sync Odds' to fetch the latest UFC fights." :
-               sportTab === 'cricket' || sportTab === 'football'
-                ? 'Ask admin to sync events from the API, or add them manually in the admin panel.'
-                : 'Ask admin to add events for this sport.'}
+            <h3 className="text-lg font-bold text-text-primary mb-2">
+              No {sportTab === 'all' ? '' : sportTab} {statusFilter === 'all' ? '' : statusFilter} events found
+            </h3>
+            <p className="text-muted text-sm max-w-xs mx-auto mb-4">
+              {AUTO_FETCH_SPORTS.has(sportTab)
+                ? 'No events available from the odds feed right now. Try a different status filter or check back later.'
+                : sportTab === 'kabaddi' || sportTab === 'badminton' || sportTab === 'chess' || sportTab === 'wwe'
+                ? 'This sport uses manually added events. Ask admin to add upcoming matches.'
+                : 'Try switching the status filter or syncing odds.'}
             </p>
+            {statusFilter !== 'upcoming' && (
+              <button onClick={() => setStatusFilter('upcoming')}
+                className="px-4 py-2 rounded-xl border border-border bg-surface text-sm text-text-secondary hover:text-text-primary mr-2">
+                Show Upcoming
+              </button>
+            )}
+            {sportTab !== 'mma' && AUTO_FETCH_SPORTS.has(sportTab) && (
+              <button
+                onClick={async () => { fetchedSports.current.delete(sportTab); await loadData() }}
+                className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold"
+              >
+                Retry Fetch
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
-            {/* MMA / UFC fights */}
+            {/* MMA fights */}
             {fights.length > 0 && (
               <section>
-                {(sportTab === 'all') && (
+                {sportTab === 'all' && (
                   <h3 className="text-sm font-black text-text-primary mb-3 flex items-center gap-2">
                     <span>🥋</span> MMA / UFC
+                    <span className="text-xs font-normal text-muted">{fights.length} fight{fights.length !== 1 ? 's' : ''}</span>
                   </h3>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
