@@ -166,7 +166,11 @@ export default function GroupRoomPage() {
     const isVideo = file.type.startsWith('video/')
     const isImage = file.type.startsWith('image/')
     if (!isImage && !isVideo) { setUploadError('Only images and videos are supported.'); return }
-    if (file.size > 50 * 1024 * 1024) { setUploadError('File must be under 50 MB.'); return }
+    const maxBytes = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024
+    if (file.size > maxBytes) {
+      setUploadError(isVideo ? 'Video must be under 100 MB.' : 'Image must be under 10 MB.')
+      return
+    }
 
     // Show local preview immediately
     const localUrl = URL.createObjectURL(file)
