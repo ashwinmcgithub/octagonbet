@@ -382,15 +382,11 @@ export default function HomePage() {
                       return new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime()
                     })
 
-                    // Split into main card (main event + co-main + main card bouts) and prelims.
-                    // If no fights carry main card labels, treat all as main card to avoid empty hero.
-                    const labeled = orderedFights.filter(f => getBoutPriority(f.eventName) <= 2)
-                    const effectiveMainCard = labeled.length > 0 ? labeled : orderedFights
-                    const effectivePrelims  = labeled.length > 0
-                      ? orderedFights.filter(f => getBoutPriority(f.eventName) > 2)
-                      : []
-                    const [heroFight, ...supportingFights] = effectiveMainCard
-                    const prelimFights = effectivePrelims
+                    // Only fights explicitly tagged "Prelims" (priority 3) go to the bottom.
+                    // Unlabeled fights (priority 4) stay in the main card — never shunt them to prelims.
+                    const prelimFights   = orderedFights.filter(f => getBoutPriority(f.eventName) === 3)
+                    const mainCardFights = orderedFights.filter(f => getBoutPriority(f.eventName) !== 3)
+                    const [heroFight, ...supportingFights] = mainCardFights
                     const heroPriority = getBoutPriority(heroFight.eventName)
 
                     return (
