@@ -465,7 +465,14 @@ export default function HomePage() {
                   const meta = SPORT_META[sport] ?? SPORT_META.mma
                   const tab = SPORT_TABS.find(t => t.key === sport)
                   const sportBanners = announcements?.filter(a => a.sport === sport) ?? []
-                  const [heroEvent, ...secondaryEvents] = evs
+
+                  // Same ordering as MMA: live first → upcoming → completed, then by time
+                  const orderedEvs = [...evs].sort((a, b) => {
+                    const statusDiff = (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)
+                    if (statusDiff !== 0) return statusDiff
+                    return new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime()
+                  })
+                  const [heroEvent, ...secondaryEvents] = orderedEvs
 
                   return (
                     <section key={sport}>
