@@ -188,7 +188,10 @@ export default function GroupRoomPage() {
         { method: 'POST', body: fd }
       )
       const data = await res.json()
-      if (!data.secure_url) throw new Error('Upload failed')
+      if (!res.ok || !data.secure_url) {
+        const msg = data?.error?.message ?? `Upload failed (${res.status})`
+        throw new Error(msg)
+      }
 
       setMediaPreview({ url: localUrl, type: isVideo ? 'video' : 'image', cloudUrl: data.secure_url })
     } catch (err) {
