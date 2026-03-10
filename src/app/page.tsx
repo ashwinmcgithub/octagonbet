@@ -383,10 +383,12 @@ export default function HomePage() {
                     })
 
                     // Only fights explicitly tagged "Prelims" (priority 3) go to the bottom.
-                    // Unlabeled fights (priority 4) stay in the main card — never shunt them to prelims.
+                    // Unlabeled fights (priority 4) stay in main card — never shunt them to prelims.
                     const prelimFights   = orderedFights.filter(f => getBoutPriority(f.eventName) === 3)
                     const mainCardFights = orderedFights.filter(f => getBoutPriority(f.eventName) !== 3)
-                    const [heroFight, ...supportingFights] = mainCardFights
+                    // Fall back to all fights if somehow every fight is labeled prelims
+                    const effectiveMain  = mainCardFights.length > 0 ? mainCardFights : orderedFights
+                    const [heroFight, ...supportingFights] = effectiveMain
                     const heroPriority = getBoutPriority(heroFight.eventName)
 
                     return (
@@ -489,10 +491,7 @@ export default function HomePage() {
                             Featured Match
                           </span>
                         </div>
-                        <div className={cn(
-                          'rounded-2xl shadow-[0_0_24px_rgba(0,0,0,0.25)]',
-                          // subtle sport-colored ring using a wrapper outline
-                        )}>
+                        <div className="rounded-2xl shadow-[0_0_24px_rgba(0,0,0,0.25)]">
                           <SportEventCard event={heroEvent} onBetPlaced={loadData} />
                         </div>
                       </div>
