@@ -8,7 +8,7 @@ import { SPORT_META } from './SportEventCard'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-interface Announcement {
+export interface Announcement {
   id: string
   sport: string
   title: string
@@ -41,7 +41,7 @@ function useCountdown(targetISO: string) {
   return { label, urgent }
 }
 
-function BannerCard({ ann }: { ann: Announcement }) {
+export function BannerCard({ ann }: { ann: Announcement }) {
   const meta = SPORT_META[ann.sport] ?? SPORT_META.mma
   const startsAt = new Date(ann.startsAt)
   const bettingOpensAt = ann.bettingOpensAt ? new Date(ann.bettingOpensAt) : null

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import useSWR from 'swr'
 import { TrendingUp, RefreshCw, Trophy, Loader2 } from 'lucide-react'
 import FightCard from '@/components/FightCard'
 import SportEventCard, { SPORT_META, type SportEvent } from '@/components/SportEventCard'
-import SeasonBanner from '@/components/SeasonBanner'
+import { BannerCard, type Announcement } from '@/components/SeasonBanner'
 import { cn } from '@/lib/utils'
 
 interface Fight {
@@ -41,6 +42,46 @@ const SPORT_TABS = [
 const AUTO_FETCH_SPORTS = new Set(['cricket', 'football', 'tennis', 'nba', 'boxing', 'f1'])
 
 const STATUS_ORDER: Record<string, number> = { live: 0, upcoming: 1, completed: 2 }
+const SPORT_SECTION_ORDER = SPORT_TABS.map((tab) => tab.key).filter((key) => key !== 'all')
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
+
+function getUfcCardName(eventName: string | null): string {
+  if (!eventName) return 'UFC Card'
+  const normalized = eventName.replace(/\s+/g, ' ').trim()
+  const splitLabels = [' - Main Event', ' - Co-Main', ' - Main Card', ' - Prelims']
+
+  for (const label of splitLabels) {
+    const idx = normalized.toLowerCase().indexOf(label.toLowerCase())
+    if (idx > 0) return normalized.slice(0, idx).trim()
+  }
+
+  return normalized
+}
+
+function getBoutPriority(eventName: string | null): number {
+  const text = (eventName ?? '').toLowerCase()
+  if (text.includes('main event')) return 0
+  if (text.includes('co-main')) return 1
+  if (text.includes('main card')) return 2
+  if (text.includes('prelims')) return 3
+  return 4
+}
+
+function getBoutLabel(priority: number): string {
+  if (priority === 0) return 'Main Event'
+  if (priority === 1) return 'Co-Main Event'
+  return 'Featured'
+}
+
+function InlineBannerRow({ banners }: { banners: Announcement[] }) {
+  if (banners.length === 0) return null
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2 mb-5 scrollbar-hide">
+      {banners.map(ann => <BannerCard key={ann.id} ann={ann} />)}
+    </div>
+  )
+}
 
 export default function HomePage() {
   const [sportTab, setSportTab] = useState('all')
@@ -49,11 +90,13 @@ export default function HomePage() {
   const [fights, setFights] = useState<Fight[]>([])
   const [events, setEvents] = useState<SportEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [fetching, setFetching] = useState(false) // background odds fetch
+  const [fetching, setFetching] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
-  // Track which sports have been fetched this session to avoid repeated API calls
   const fetchedSports = useRef<Set<string>>(new Set())
+
+  // Fetch announcements once — injected per sport section
+  const { data: announcements } = useSWR<Announcement[]>('/api/announcements', fetcher)
 
   const loadEvents = useCallback(async (sport: string, status: string) => {
     if (sport === 'mma') { setEvents([]); return }
@@ -77,7 +120,6 @@ export default function HomePage() {
     } catch { setFights([]) }
   }, [])
 
-  // Auto-fetch from Odds API for supported sports when DB has no events
   const autoFetch = useCallback(async (sport: string) => {
     const sportsToFetch = sport === 'all'
       ? Array.from(AUTO_FETCH_SPORTS)
@@ -115,7 +157,6 @@ export default function HomePage() {
     }
   }, [sportTab, statusFilter, loadFights, loadEvents])
 
-  // On tab switch: load DB first, then auto-fetch if needed, then reload
   useEffect(() => {
     let cancelled = false
 
@@ -132,11 +173,9 @@ export default function HomePage() {
 
         if (cancelled) return
 
-        // If no events found, auto-fetch from Odds API
         if ((eventCount === 0 || eventCount === undefined) && showOther) {
           await autoFetch(sportTab)
           if (cancelled) return
-          // Reload after fetch
           if (showOther) await loadEvents(sportTab, statusFilter)
         }
       } finally {
@@ -152,7 +191,6 @@ export default function HomePage() {
     setSyncing(true)
     try {
       await fetch('/api/odds/sync', { method: 'POST' })
-      // Also refresh the current sport
       if (sportTab !== 'mma') {
         fetchedSports.current.delete(sportTab)
         await autoFetch(sportTab)
@@ -171,9 +209,22 @@ export default function HomePage() {
   const liveCount = fights.filter(f => f.status === 'live').length + events.filter(e => e.status === 'live').length
   const totalItems = fights.length + events.length
 
+  const mmaCards = fights.reduce((acc: Record<string, Fight[]>, fight) => {
+    const card = getUfcCardName(fight.eventName)
+    if (!acc[card]) acc[card] = []
+    acc[card].push(fight)
+    return acc
+  }, {})
+
+  const orderedMmaCards = Object.keys(mmaCards).sort((a, b) => {
+    const aTime = Math.min(...mmaCards[a].map((f) => new Date(f.commenceTime).getTime()))
+    const bTime = Math.min(...mmaCards[b].map((f) => new Date(f.commenceTime).getTime()))
+    return aTime - bTime
+  })
+
   return (
     <div className="min-h-screen">
-      {/* Hero */}
+      {/* Hero tagline */}
       <div className="relative overflow-hidden border-b border-border bg-gradient-to-b from-surface to-background">
         <div className="absolute inset-0 bg-red-glow pointer-events-none opacity-40" />
         <div className="mx-auto max-w-7xl px-4 py-10 text-center">
@@ -198,8 +249,6 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-
-      <SeasonBanner />
 
       <div className="mx-auto max-w-7xl px-4 py-6">
         {/* Sport tab bar */}
@@ -275,8 +324,13 @@ export default function HomePage() {
 
         {/* Content */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {[1,2,3,4,5,6].map(i => <div key={i} className="h-56 rounded-2xl bg-surface animate-pulse" />)}
+          <div className="space-y-6">
+            {/* Skeleton: hero card */}
+            <div className="max-w-sm mx-auto h-72 rounded-2xl bg-surface animate-pulse" />
+            {/* Skeleton: secondary grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1,2,3,4,5].map(i => <div key={i} className="h-56 rounded-2xl bg-surface animate-pulse" />)}
+            </div>
           </div>
         ) : totalItems === 0 ? (
           <div className="text-center py-20">
@@ -307,50 +361,159 @@ export default function HomePage() {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* MMA fights */}
+          <div className="space-y-10">
+
+            {/* ── MMA / UFC section ── */}
             {fights.length > 0 && (
               <section>
-                {sportTab === 'all' && (
-                  <h3 className="text-sm font-black text-text-primary mb-3 flex items-center gap-2">
-                    <span>🥋</span> MMA / UFC
-                    <span className="text-xs font-normal text-muted">{fights.length} fight{fights.length !== 1 ? 's' : ''}</span>
-                  </h3>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {fights.map(fight => (
-                    <FightCard key={fight.id} fight={fight} onBetPlaced={loadData} />
-                  ))}
+                <h3 className="text-sm font-black text-text-primary mb-4 flex items-center gap-2">
+                  <span>🥋</span> MMA / UFC
+                  <span className="text-xs font-normal text-muted">{fights.length} fight{fights.length !== 1 ? 's' : ''}</span>
+                </h3>
+
+                {/* Banners for MMA/UFC injected inline */}
+                <InlineBannerRow banners={announcements?.filter(a => a.sport === 'mma') ?? []} />
+
+                <div className="space-y-10">
+                  {orderedMmaCards.map((cardName) => {
+                    const orderedFights = [...mmaCards[cardName]].sort((a, b) => {
+                      const byPriority = getBoutPriority(a.eventName) - getBoutPriority(b.eventName)
+                      if (byPriority !== 0) return byPriority
+                      return new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime()
+                    })
+
+                    // Split into main card (main event + co-main + main card bouts) and prelims
+                    const mainCardFights = orderedFights.filter(f => getBoutPriority(f.eventName) <= 2)
+                    const prelimFights   = orderedFights.filter(f => getBoutPriority(f.eventName) >  2)
+                    const [heroFight, ...supportingFights] = mainCardFights
+                    const heroPriority = getBoutPriority(heroFight.eventName)
+
+                    return (
+                      <section key={cardName}>
+                        <div className="mb-5 flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-white">{cardName}</h4>
+                          <span className="text-xs text-muted">
+                            {orderedFights.length} fight{orderedFights.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        {/* ── Hero fight: centered, glowing ── */}
+                        <div className="max-w-sm mx-auto mb-5">
+                          <div className="flex justify-center mb-3">
+                            <span className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                              {getBoutLabel(heroPriority)}
+                            </span>
+                          </div>
+                          <div className="ring-2 ring-primary/25 rounded-2xl shadow-[0_0_36px_rgba(220,38,38,0.18)]">
+                            <FightCard fight={heroFight} onBetPlaced={loadData} />
+                          </div>
+                        </div>
+
+                        {/* ── Supporting main card bouts (co-main + main card) ── */}
+                        {supportingFights.length > 0 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+                            {supportingFights.map(fight => (
+                              <FightCard key={fight.id} fight={fight} onBetPlaced={loadData} />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* ── Prelims ── */}
+                        {prelimFights.length > 0 && (
+                          <>
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="h-px flex-1 bg-border" />
+                              <span className="text-[10px] font-black text-muted uppercase tracking-widest">
+                                Prelims · {prelimFights.length} fight{prelimFights.length !== 1 ? 's' : ''}
+                              </span>
+                              <div className="h-px flex-1 bg-border" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                              {prelimFights.map(fight => (
+                                <FightCard key={fight.id} fight={fight} onBetPlaced={loadData} />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </section>
+                    )
+                  })}
                 </div>
               </section>
             )}
 
-            {/* Sport events grouped by sport */}
+            {/* ── Sport events grouped by sport ── */}
             {(() => {
               const grouped: Record<string, SportEvent[]> = {}
               for (const e of events) {
                 if (!grouped[e.sport]) grouped[e.sport] = []
                 grouped[e.sport].push(e)
               }
-              return Object.entries(grouped).map(([s, evs]) => {
-                const meta = SPORT_META[s] ?? SPORT_META.mma
-                const tab = SPORT_TABS.find(t => t.key === s)
-                return (
-                  <section key={s}>
-                    {sportTab === 'all' && (
-                      <h3 className="text-sm font-black text-text-primary mb-3 flex items-center gap-2">
-                        <span>{tab?.emoji ?? meta.emoji}</span>
-                        {tab?.label ?? s}
-                        <span className="text-xs font-normal text-muted">{evs.length} event{evs.length !== 1 ? 's' : ''}</span>
-                      </h3>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {evs.map(ev => <SportEventCard key={ev.id} event={ev} onBetPlaced={loadData} />)}
-                    </div>
-                  </section>
-                )
-              })
+              return Object.entries(grouped)
+                .sort(([a], [b]) => {
+                  const ai = SPORT_SECTION_ORDER.indexOf(a)
+                  const bi = SPORT_SECTION_ORDER.indexOf(b)
+                  const aRank = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
+                  const bRank = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
+                  return aRank - bRank
+                })
+                .map(([sport, evs]) => {
+                  const meta = SPORT_META[sport] ?? SPORT_META.mma
+                  const tab = SPORT_TABS.find(t => t.key === sport)
+                  const sportBanners = announcements?.filter(a => a.sport === sport) ?? []
+                  const [heroEvent, ...secondaryEvents] = evs
+
+                  return (
+                    <section key={sport}>
+                      {sportTab === 'all' && (
+                        <h3 className="text-sm font-black text-text-primary mb-4 flex items-center gap-2">
+                          <span>{tab?.emoji ?? meta.emoji}</span>
+                          {tab?.label ?? sport}
+                          <span className="text-xs font-normal text-muted">{evs.length} event{evs.length !== 1 ? 's' : ''}</span>
+                        </h3>
+                      )}
+
+                      {/* Banners for this sport injected inline */}
+                      <InlineBannerRow banners={sportBanners} />
+
+                      {/* ── Hero event: full-width, sport-accented ── */}
+                      <div className="mb-6">
+                        <div className="flex justify-center mb-3">
+                          <span className={cn(
+                            'flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider',
+                            meta.bg, meta.border, meta.color
+                          )}>
+                            <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                            Featured Match
+                          </span>
+                        </div>
+                        <div className={cn(
+                          'rounded-2xl shadow-[0_0_24px_rgba(0,0,0,0.25)]',
+                          // subtle sport-colored ring using a wrapper outline
+                        )}>
+                          <SportEventCard event={heroEvent} onBetPlaced={loadData} />
+                        </div>
+                      </div>
+
+                      {/* ── Secondary events grid ── */}
+                      {secondaryEvents.length > 0 && (
+                        <>
+                          <p className="text-[10px] font-bold text-muted uppercase tracking-wider mb-3 text-center">
+                            More {tab?.label ?? sport} events
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {secondaryEvents.map(ev => (
+                              <SportEventCard key={ev.id} event={ev} onBetPlaced={loadData} />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </section>
+                  )
+                })
             })()}
+
           </div>
         )}
       </div>
