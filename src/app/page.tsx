@@ -382,10 +382,15 @@ export default function HomePage() {
                       return new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime()
                     })
 
-                    // Split into main card (main event + co-main + main card bouts) and prelims
-                    const mainCardFights = orderedFights.filter(f => getBoutPriority(f.eventName) <= 2)
-                    const prelimFights   = orderedFights.filter(f => getBoutPriority(f.eventName) >  2)
-                    const [heroFight, ...supportingFights] = mainCardFights
+                    // Split into main card (main event + co-main + main card bouts) and prelims.
+                    // If no fights carry main card labels, treat all as main card to avoid empty hero.
+                    const labeled = orderedFights.filter(f => getBoutPriority(f.eventName) <= 2)
+                    const effectiveMainCard = labeled.length > 0 ? labeled : orderedFights
+                    const effectivePrelims  = labeled.length > 0
+                      ? orderedFights.filter(f => getBoutPriority(f.eventName) > 2)
+                      : []
+                    const [heroFight, ...supportingFights] = effectiveMainCard
+                    const prelimFights = effectivePrelims
                     const heroPriority = getBoutPriority(heroFight.eventName)
 
                     return (
