@@ -396,9 +396,9 @@ export default function GroupRoomPage() {
 
       <div className="mx-auto w-full max-w-4xl flex-1 flex flex-col lg:flex-row gap-0 lg:gap-6 px-4 py-3">
         {/* Chat column */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex flex-col min-h-0 lg:flex-1">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pb-4 min-h-[45vh] max-h-[60vh] lg:min-h-[50vh] lg:max-h-[65vh]">
+          <div className="overflow-y-auto scrollbar-hide space-y-3 pb-4 h-[55vh] lg:h-[65vh]">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full py-12 text-center">
                 <p className="text-sm text-muted">No messages yet. Say hello!</p>
