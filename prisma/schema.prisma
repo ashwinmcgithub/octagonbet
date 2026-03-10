@@ -122,7 +122,9 @@ model Message {
   id        String   @id @default(cuid())
   groupId   String
   userId    String
-  content   String
+  content   String   @default("")
+  mediaUrl  String?
+  mediaType String?  // "image" | "video"
   createdAt DateTime @default(now())
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)

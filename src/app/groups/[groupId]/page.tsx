@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Send, Users, Hash, Copy, Check, ChevronDown, ChevronUp, Plus } from 'lucide-react'
+import { ArrowLeft, Send, Users, Hash, Copy, Check, ChevronDown, ChevronUp, Plus, Paperclip, X, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { formatOdds } from '@/lib/utils'
@@ -16,6 +16,8 @@ interface UserInfo { id: string; name: string | null; image: string | null }
 interface Message {
   id: string
   content: string
+  mediaUrl: string | null
+  mediaType: string | null
   createdAt: string
   userId: string
   user: UserInfo
@@ -83,6 +85,12 @@ export default function GroupRoomPage() {
   const [showJoinBet, setShowJoinBet] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Media state
+  const [mediaPreview, setMediaPreview] = useState<{ url: string; type: 'image' | 'video'; cloudUrl?: string } | null>(null)
+  const [uploadingMedia, setUploadingMedia] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   // Propose bet form
   const [propFightId, setPropFightId] = useState('')
@@ -150,17 +158,66 @@ export default function GroupRoomPage() {
   if (status === 'loading') return null
   if (!session) { router.push('/login'); return null }
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    const isVideo = file.type.startsWith('video/')
+    const isImage = file.type.startsWith('image/')
+    if (!isImage && !isVideo) { setUploadError('Only images and videos are supported.'); return }
+    if (file.size > 50 * 1024 * 1024) { setUploadError('File must be under 50 MB.'); return }
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file)
+    setMediaPreview({ url: localUrl, type: isVideo ? 'video' : 'image' })
+    setUploadError('')
+    setUploadingMedia(true)
+
+    try {
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+      if (!cloudName || !uploadPreset) throw new Error('Upload not configured')
+
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('upload_preset', uploadPreset)
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/${isVideo ? 'video' : 'image'}/upload`,
+        { method: 'POST', body: fd }
+      )
+      const data = await res.json()
+      if (!data.secure_url) throw new Error('Upload failed')
+
+      setMediaPreview({ url: localUrl, type: isVideo ? 'video' : 'image', cloudUrl: data.secure_url })
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed')
+      setMediaPreview(null)
+    } finally {
+      setUploadingMedia(false)
+    }
+  }
+
+  function clearMedia() {
+    setMediaPreview(null)
+    setUploadError('')
+  }
+
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
-    if (!input.trim() || sending) return
+    if ((!input.trim() && !mediaPreview?.cloudUrl) || sending || uploadingMedia) return
     setSending(true)
     const content = input.trim()
+    const mediaUrl = mediaPreview?.cloudUrl ?? null
+    const mediaType = mediaPreview?.type ?? null
     setInput('')
+    setMediaPreview(null)
     try {
       const res = await fetch(`/api/groups/${groupId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, mediaUrl, mediaType }),
       })
       if (res.ok) {
         const msg: Message = await res.json()
@@ -292,17 +349,40 @@ export default function GroupRoomPage() {
                   <div className="h-7 w-7 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
                     {msg.user.name?.[0]?.toUpperCase() ?? 'U'}
                   </div>
-                  <div className={cn('max-w-[75%] space-y-1', isMe ? 'items-end' : 'items-start')}>
+                  <div className={cn('max-w-[75%] space-y-1', isMe ? 'items-end flex flex-col' : 'items-start flex flex-col')}>
                     {!isMe && (
                       <p className="text-[10px] text-muted px-1">{msg.user.name}</p>
                     )}
                     <div className={cn(
-                      'rounded-2xl px-3.5 py-2 text-sm leading-snug',
-                      isMe
-                        ? 'rounded-br-sm bg-primary text-white'
-                        : 'rounded-bl-sm bg-surface-2 border border-border text-text-primary'
+                      'rounded-2xl overflow-hidden',
+                      isMe ? 'rounded-br-sm' : 'rounded-bl-sm',
+                      msg.mediaUrl && !msg.content ? '' : cn(
+                        'px-3.5 py-2',
+                        isMe ? 'bg-primary text-white' : 'bg-surface-2 border border-border text-text-primary'
+                      )
                     )}>
-                      {msg.content}
+                      {/* Media */}
+                      {msg.mediaUrl && msg.mediaType === 'image' && (
+                        <img
+                          src={msg.mediaUrl}
+                          alt="shared image"
+                          className="max-w-[260px] max-h-60 w-full object-cover rounded-2xl cursor-pointer"
+                          onClick={() => window.open(msg.mediaUrl!, '_blank')}
+                        />
+                      )}
+                      {msg.mediaUrl && msg.mediaType === 'video' && (
+                        <video
+                          src={msg.mediaUrl}
+                          controls
+                          className="max-w-[260px] max-h-60 rounded-2xl"
+                        />
+                      )}
+                      {/* Text (only if present) */}
+                      {msg.content && (
+                        <span className={cn('text-sm leading-snug', msg.mediaUrl ? 'block px-3.5 pt-2 pb-2' : '')}>
+                          {msg.content}
+                        </span>
+                      )}
                     </div>
                     <p className={cn('text-[10px] text-muted px-1', isMe ? 'text-right' : 'text-left')}>
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -315,21 +395,64 @@ export default function GroupRoomPage() {
           </div>
 
           {/* Input */}
-          <form onSubmit={sendMessage} className="flex gap-2 pt-3 border-t border-border">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Message…"
-              className="flex-1 rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary focus:outline-none"
-            />
-            <button
-              type="submit"
-              disabled={sending || !input.trim()}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary hover:bg-primary-hover text-white transition-colors disabled:opacity-40"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </form>
+          <div className="pt-3 border-t border-border space-y-2">
+            {/* Media preview */}
+            {mediaPreview && (
+              <div className="relative inline-block">
+                {mediaPreview.type === 'image' ? (
+                  <img src={mediaPreview.url} alt="preview" className="h-24 w-auto rounded-xl object-cover border border-border" />
+                ) : (
+                  <video src={mediaPreview.url} className="h-24 w-auto rounded-xl border border-border" />
+                )}
+                {uploadingMedia && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={clearMedia}
+                  className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-surface border border-border text-muted hover:text-text-primary"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            {uploadError && <p className="text-xs text-primary">{uploadError}</p>}
+
+            <form onSubmit={sendMessage} className="flex gap-2">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              {/* Attach button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingMedia}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 text-muted hover:text-text-primary hover:border-border-bright transition-colors disabled:opacity-40"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Message…"
+                className="flex-1 rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary placeholder:text-muted focus:border-primary focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={sending || uploadingMedia || (!input.trim() && !mediaPreview?.cloudUrl)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary hover:bg-primary-hover text-white transition-colors disabled:opacity-40"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
         </div>
 
         {/* Group Bets sidebar */}

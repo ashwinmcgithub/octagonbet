@@ -37,8 +37,10 @@ export async function POST(req: NextRequest, { params }: { params: { groupId: st
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { groupId } = params
-  const { content } = await req.json()
-  if (!content?.trim()) return NextResponse.json({ error: 'Message required' }, { status: 400 })
+  const { content, mediaUrl, mediaType } = await req.json()
+
+  // Must have text or media
+  if (!content?.trim() && !mediaUrl) return NextResponse.json({ error: 'Message required' }, { status: 400 })
 
   const member = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId, userId: session.user.id } },
@@ -46,7 +48,13 @@ export async function POST(req: NextRequest, { params }: { params: { groupId: st
   if (!member) return NextResponse.json({ error: 'Not a member' }, { status: 403 })
 
   const message = await prisma.message.create({
-    data: { groupId, userId: session.user.id, content: content.trim() },
+    data: {
+      groupId,
+      userId: session.user.id,
+      content: content?.trim() ?? '',
+      mediaUrl: mediaUrl ?? null,
+      mediaType: mediaType ?? null,
+    },
     include: { user: { select: { id: true, name: true, image: true } } },
   })
 
