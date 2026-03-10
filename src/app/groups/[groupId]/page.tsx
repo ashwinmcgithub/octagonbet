@@ -175,9 +175,10 @@ export default function GroupRoomPage() {
     setUploadingMedia(true)
 
     try {
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-      if (!cloudName || !uploadPreset) throw new Error('Upload not configured')
+      // Fetch config from server-side API (avoids NEXT_PUBLIC_ build-time baking issues)
+      const configRes = await fetch('/api/upload/config')
+      if (!configRes.ok) throw new Error('Upload not configured')
+      const { cloudName, uploadPreset } = await configRes.json()
 
       const fd = new FormData()
       fd.append('file', file)
