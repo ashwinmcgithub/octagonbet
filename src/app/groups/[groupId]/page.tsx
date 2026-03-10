@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Send, Users, Hash, Copy, Check, ChevronDown, ChevronUp, Plus, Paperclip, X, Loader2 } from 'lucide-react'
+import { ArrowLeft, Send, Users, Hash, Copy, Check, ChevronDown, ChevronUp, Plus, Paperclip, X, Loader2, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { formatOdds } from '@/lib/utils'
@@ -86,6 +86,12 @@ export default function GroupRoomPage() {
   const [copied, setCopied] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const initialScrollDone = useRef(false)
+
+  // Group rename state
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [savingName, setSavingName] = useState(false)
 
   // Media state
   const [mediaPreview, setMediaPreview] = useState<{ url: string; type: 'image' | 'video'; cloudUrl?: string } | null>(null)
@@ -104,7 +110,7 @@ export default function GroupRoomPage() {
   const [joinLoading, setJoinLoading] = useState(false)
   const [joinError, setJoinError] = useState('')
 
-  const { data: group } = useSWR<GroupInfo>(`/api/groups/${groupId}`, fetcher)
+  const { data: group, mutate: mutateGroup } = useSWR<GroupInfo>(`/api/groups/${groupId}`, fetcher)
   const { data: bets, mutate: mutateBets } = useSWR<GroupBet[]>(
     `/api/groups/${groupId}/bets`, fetcher, { refreshInterval: 5000 }
   )
@@ -135,13 +141,18 @@ export default function GroupRoomPage() {
       } catch {}
     }
 
-    // Initial load (no cursor)
+    // Initial load (no cursor) — scroll to bottom once
     fetch(`/api/groups/${groupId}/messages`)
       .then((r) => r.json())
       .then((data: Message[]) => {
         if (!isMounted) return
         setMessages(data)
         if (data.length > 0) setLastTimestamp(data[data.length - 1].createdAt)
+        // Scroll to bottom on entry, then let user scroll freely
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'instant' })
+          initialScrollDone.current = true
+        }, 50)
       })
       .catch(() => {})
 
@@ -150,10 +161,7 @@ export default function GroupRoomPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, session?.user?.id])
 
-  // Auto-scroll on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  // No auto-scroll on new messages — user scrolls freely after initial load
 
   if (status === 'loading') return null
   if (!session) { router.push('/login'); return null }
@@ -234,9 +242,29 @@ export default function GroupRoomPage() {
           return [...prev, msg]
         })
         setLastTimestamp(msg.createdAt)
+        // Scroll to bottom when user sends their own message
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
     } finally {
       setSending(false)
+    }
+  }
+
+  async function saveGroupName() {
+    if (!nameInput.trim() || savingName) return
+    setSavingName(true)
+    try {
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameInput.trim(), description: group?.description }),
+      })
+      if (res.ok) {
+        await mutateGroup()
+        setEditingName(false)
+      }
+    } finally {
+      setSavingName(false)
     }
   }
 
@@ -299,8 +327,34 @@ export default function GroupRoomPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="font-bold text-text-primary truncate">{group?.name ?? '…'}</h1>
-            {group?.description && (
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveGroupName(); if (e.key === 'Escape') setEditingName(false) }}
+                  className="flex-1 rounded-lg border border-primary bg-surface px-2 py-1 text-sm font-bold text-text-primary focus:outline-none"
+                />
+                <button onClick={saveGroupName} disabled={savingName} className="text-xs font-bold text-win hover:underline disabled:opacity-50">
+                  {savingName ? '…' : 'Save'}
+                </button>
+                <button onClick={() => setEditingName(false)} className="text-xs text-muted hover:text-text-primary">Cancel</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h1 className="font-bold text-text-primary truncate">{group?.name ?? '…'}</h1>
+                {group && session && group.owner.id === session.user.id && (
+                  <button
+                    onClick={() => { setNameInput(group.name); setEditingName(true) }}
+                    className="shrink-0 text-muted hover:text-text-primary transition-colors"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+            {!editingName && group?.description && (
               <p className="text-xs text-muted truncate">{group.description}</p>
             )}
           </div>
@@ -340,11 +394,11 @@ export default function GroupRoomPage() {
         )}
       </div>
 
-      <div className="mx-auto w-full max-w-4xl flex-1 flex flex-col lg:flex-row gap-0 lg:gap-6 px-4 py-4">
+      <div className="mx-auto w-full max-w-4xl flex-1 flex flex-col lg:flex-row gap-0 lg:gap-6 px-4 py-3">
         {/* Chat column */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-[50vh] max-h-[65vh]">
+          <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pb-4 min-h-[45vh] max-h-[60vh] lg:min-h-[50vh] lg:max-h-[65vh]">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full py-12 text-center">
                 <p className="text-sm text-muted">No messages yet. Say hello!</p>
@@ -464,7 +518,7 @@ export default function GroupRoomPage() {
         </div>
 
         {/* Group Bets sidebar */}
-        <div className="lg:w-72 space-y-3 mt-4 lg:mt-0">
+        <div className="lg:w-72 space-y-3 mt-2 lg:mt-0">
           <button
             onClick={() => setShowBets(!showBets)}
             className="w-full flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-text-primary hover:border-border-bright transition-colors"
