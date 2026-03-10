@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, RefreshCw, Trophy, Loader2 } from 'lucide-react'
 import FightCard from '@/components/FightCard'
 import SportEventCard, { SPORT_META, type SportEvent } from '@/components/SportEventCard'
+import SeasonBanner from '@/components/SeasonBanner'
 import { cn } from '@/lib/utils'
 
 interface Fight {
@@ -197,6 +198,8 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      <SeasonBanner />
 
       <div className="mx-auto max-w-7xl px-4 py-6">
         {/* Sport tab bar */}

@@ -292,3 +292,15 @@ model Transaction {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// ── Season announcements (upcoming events banner) ───────────────────────────
+model SeasonAnnouncement {
+  id             String    @id @default(cuid())
+  sport          String
+  title          String
+  description    String?
+  startsAt       DateTime
+  bettingOpensAt DateTime?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+}

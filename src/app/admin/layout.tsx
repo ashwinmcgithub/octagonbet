@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, Users, Swords, BarChart3, Globe } from 'lucide-react'
+import { Shield, Users, Swords, BarChart3, Globe, Bell } from 'lucide-react'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
@@ -15,6 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin', label: 'Dashboard', icon: BarChart3 },
     { href: '/admin/fights', label: 'UFC Fights', icon: Swords },
     { href: '/admin/events', label: 'Sport Events', icon: Globe },
+    { href: '/admin/announcements', label: 'Season Banners', icon: Bell },
     { href: '/admin/users', label: 'Users', icon: Users },
   ]
 
