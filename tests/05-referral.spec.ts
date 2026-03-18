@@ -63,7 +63,7 @@ test.describe('Referral Reward Logic — Q2', () => {
     await expect(page.locator('text=/1,500|1500/')).toBeVisible({ timeout: 10000 })
 
     // Referral bonus transaction should appear
-    await expect(page.locator('text=/Referral bonus/i')).toBeVisible()
+    await expect(page.locator('text=/Referral bonus/i').first()).toBeVisible()
   })
 
   test('Q2: only the referrer gets 500 FC — new user gets 1000 FC welcome only', async ({ page, browser }) => {

@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import Image from 'next/image'
 import { Search, RefreshCw, Shield, User, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
 interface UserRecord {
@@ -11,13 +10,11 @@ interface UserRecord {
   name: string | null
   email: string
   image: string | null
-  balance: number
   role: string
   createdAt: string
-  _count: { bets: number }
 }
 
-type SortKey = 'createdAt' | 'balance' | 'bets' | 'name'
+type SortKey = 'createdAt' | 'name'
 type SortDir = 'asc' | 'desc'
 
 function timeAgo(date: string) {
@@ -38,8 +35,6 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('createdAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [adjusting, setAdjusting] = useState<string | null>(null)
-  const [adjustAmount, setAdjustAmount] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -51,24 +46,6 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => { loadUsers() }, [])
-
-  async function adjustBalance(userId: string) {
-    const amount = parseFloat(adjustAmount[userId] || '0')
-    if (!amount) return
-    setAdjusting(userId)
-    try {
-      const user = users.find((u) => u.id === userId)!
-      await fetch('/api/admin/users', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, balance: user.balance + amount }),
-      })
-      setAdjustAmount((prev) => ({ ...prev, [userId]: '' }))
-      await loadUsers()
-    } finally {
-      setAdjusting(null)
-    }
-  }
 
   async function toggleRole(userId: string, currentRole: string) {
     if (!confirm(`${currentRole === 'admin' ? 'Remove' : 'Grant'} admin access?`)) return
@@ -108,8 +85,6 @@ export default function AdminUsersPage() {
       let av: number | string = 0
       let bv: number | string = 0
       if (sortKey === 'createdAt') { av = a.createdAt; bv = b.createdAt }
-      if (sortKey === 'balance') { av = a.balance; bv = b.balance }
-      if (sortKey === 'bets') { av = a._count.bets; bv = b._count.bets }
       if (sortKey === 'name') { av = a.name ?? ''; bv = b.name ?? '' }
       if (av < bv) return sortDir === 'asc' ? -1 : 1
       if (av > bv) return sortDir === 'asc' ? 1 : -1
@@ -188,8 +163,6 @@ export default function AdminUsersPage() {
       <div className="flex items-center gap-4 px-1">
         <span className="text-[11px] text-muted uppercase tracking-wider">Sort by:</span>
         <SortBtn col="createdAt" label="Joined" />
-        <SortBtn col="balance" label="Balance" />
-        <SortBtn col="bets" label="Bets" />
         <SortBtn col="name" label="Name" />
       </div>
 
@@ -239,20 +212,10 @@ export default function AdminUsersPage() {
                     <p className="text-sm text-muted mt-0.5 font-mono">{user.email}</p>
                   </div>
 
-                  {/* Stats */}
-                  <div className="hidden sm:flex items-center gap-6 shrink-0">
-                    <div className="text-right">
-                      <p className="text-sm font-black text-text-primary">FC {formatCurrency(user.balance)}</p>
-                      <p className="text-[11px] text-muted">balance</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-text-primary">{user._count.bets}</p>
-                      <p className="text-[11px] text-muted">bets</p>
-                    </div>
-                    <div className="text-right w-20">
-                      <p className="text-[11px] text-muted">{timeAgo(user.createdAt)}</p>
-                      <p className="text-[10px] text-muted opacity-60">joined</p>
-                    </div>
+                  {/* Joined time */}
+                  <div className="hidden sm:block text-right shrink-0 w-20">
+                    <p className="text-[11px] text-muted">{timeAgo(user.createdAt)}</p>
+                    <p className="text-[10px] text-muted opacity-60">joined</p>
                   </div>
 
                   <ChevronDown className={cn('h-4 w-4 text-muted shrink-0 transition-transform', isExpanded && 'rotate-180')} />
@@ -261,20 +224,9 @@ export default function AdminUsersPage() {
                 {/* Expanded actions */}
                 {isExpanded && (
                   <div className="px-5 pb-4 border-t border-border bg-surface-2 space-y-3 animate-fade-in">
-                    {/* Mobile stats */}
-                    <div className="sm:hidden flex gap-4 pt-3 text-sm">
-                      <div>
-                        <p className="font-black text-text-primary">FC {formatCurrency(user.balance)}</p>
-                        <p className="text-[11px] text-muted">balance</p>
-                      </div>
-                      <div>
-                        <p className="font-black text-text-primary">{user._count.bets}</p>
-                        <p className="text-[11px] text-muted">bets</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-muted">{timeAgo(user.createdAt)}</p>
-                        <p className="text-[10px] text-muted opacity-60">joined</p>
-                      </div>
+                    {/* Mobile joined time */}
+                    <div className="sm:hidden pt-3 text-sm">
+                      <p className="text-[11px] text-muted">{timeAgo(user.createdAt)} · joined</p>
                     </div>
 
                     {/* Full email (selectable) */}
@@ -295,25 +247,6 @@ export default function AdminUsersPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-3 pt-1">
-                      {/* Balance adjustment */}
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          placeholder="±FC amount"
-                          value={adjustAmount[user.id] || ''}
-                          onChange={(e) => setAdjustAmount((prev) => ({ ...prev, [user.id]: e.target.value }))}
-                          className="w-28 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary"
-                        />
-                        <button
-                          onClick={() => adjustBalance(user.id)}
-                          disabled={adjusting === user.id || !adjustAmount[user.id]}
-                          className="px-3 py-2 rounded-lg bg-surface border border-border hover:border-primary text-sm text-muted hover:text-primary transition-all disabled:opacity-40"
-                        >
-                          {adjusting === user.id ? '…' : 'Adjust Balance'}
-                        </button>
-                      </div>
-
-                      {/* Role toggle */}
                       <button
                         onClick={() => toggleRole(user.id, user.role)}
                         className="px-3 py-2 rounded-lg border border-border bg-surface hover:border-primary text-sm text-muted hover:text-primary transition-all"

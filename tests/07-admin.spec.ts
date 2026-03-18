@@ -15,7 +15,7 @@ test.describe('Admin Access Control — Q7', () => {
   test('admin can access /admin panel', async ({ page }) => {
     await loginUser(page, ADMIN_EMAIL, ADMIN_PASSWORD)
     await page.goto('/admin')
-    await expect(page.locator('text=Dashboard')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 })
   })
 
   test('admin panel shows stat cards: Users, Fights, Bets, Pending', async ({ page }) => {
@@ -40,7 +40,7 @@ test.describe('Admin Access Control — Q7', () => {
     await expect(syncBtn).toBeVisible({ timeout: 8000 })
     await syncBtn.click()
     // Should show syncing state or result
-    await expect(page.locator('text=/syncing|synced|settled/i')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('text=/syncing|synced|settled/i').first()).toBeVisible({ timeout: 15000 })
   })
 
   test('admin can navigate to /admin/fights', async ({ page }) => {
@@ -59,10 +59,12 @@ test.describe('Admin Access Control — Q7', () => {
 
   test('admin link appears in user dropdown for admin users', async ({ page }) => {
     await loginUser(page, ADMIN_EMAIL, ADMIN_PASSWORD)
-    // Open user dropdown
-    const chevron = page.locator('nav button').last()
-    await chevron.click()
-    await expect(page.locator('text=Admin Panel')).toBeVisible({ timeout: 5000 })
+    await page.waitForSelector('nav', { timeout: 10000 })
+    // The user menu button has rounded-full styling (not the mobile hamburger)
+    const userMenuBtn = page.locator('nav button.rounded-full')
+    await expect(userMenuBtn).toBeVisible({ timeout: 10000 })
+    await userMenuBtn.click()
+    await expect(page.locator('text=Admin Panel').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('regular user cannot access /admin — Q7 contrast', async ({ page }) => {
@@ -77,8 +79,10 @@ test.describe('Admin Access Control — Q7', () => {
   test('admin panel is NOT visible in dropdown for regular users', async ({ page }) => {
     const email = uniqueEmail('nodropdown')
     await registerUser(page, 'No Admin', email, TEST_PASSWORD)
-    const chevron = page.locator('nav button').last()
-    await chevron.click()
+    await page.waitForSelector('nav', { timeout: 10000 })
+    const userMenuBtn = page.locator('nav button.rounded-full')
+    await expect(userMenuBtn).toBeVisible({ timeout: 10000 })
+    await userMenuBtn.click()
     await expect(page.locator('text=Admin Panel')).not.toBeVisible({ timeout: 3000 })
   })
 })

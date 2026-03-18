@@ -96,6 +96,6 @@ test.describe('Navigation', () => {
 
   test('register page has link back to login', async ({ page }) => {
     await page.goto('/register')
-    await expect(page.locator('text=/sign in|log in|already/i')).toBeVisible()
+    await expect(page.locator('text=/sign in|log in|already/i').first()).toBeVisible()
   })
 })

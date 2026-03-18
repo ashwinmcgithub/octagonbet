@@ -4,8 +4,7 @@ import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
-import { Flame, Wallet, BookOpen, ChevronDown, LogOut, Shield, Menu, X, Users, Swords, Trophy } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { Flame, ChevronDown, LogOut, Shield, Menu, X, Users, Gamepad } from 'lucide-react'
 
 export default function Navbar() {
   const { data: session } = useSession()
@@ -17,59 +16,32 @@ export default function Navbar() {
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/games" className="flex items-center gap-2 group">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary group-hover:bg-primary-hover transition-colors">
               <Flame className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight text-text-primary">
-              APEX<span className="text-primary">WAGER</span>
+              APEX <span className="text-primary">WAGER</span>
             </span>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
             <Link
-              href="/"
-              className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all"
+              href="/games"
+              className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
             >
-              Fights
+              <Gamepad className="h-4 w-4" />
+              Games
             </Link>
             {session && (
               <>
-                <Link
-                  href="/my-bets"
-                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  My Bets
-                </Link>
-                <Link
-                  href="/wallet"
-                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
-                >
-                  <Wallet className="h-4 w-4" />
-                  Wallet
-                </Link>
                 <Link
                   href="/groups"
                   className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
                 >
                   <Users className="h-4 w-4" />
                   Groups
-                </Link>
-                <Link
-                  href="/challenges"
-                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
-                >
-                  <Swords className="h-4 w-4" />
-                  Challenges
-                </Link>
-                <Link
-                  href="/leaderboard"
-                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg transition-all flex items-center gap-1.5"
-                >
-                  <Trophy className="h-4 w-4" />
-                  Leaderboard
                 </Link>
               </>
             )}
@@ -79,17 +51,6 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             {session ? (
               <>
-                {/* Balance pill */}
-                <Link
-                  href="/wallet"
-                  className="hidden sm:flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-1.5 hover:border-primary transition-colors"
-                >
-                  <span className="text-xs text-muted">FC</span>
-                  <span className="text-sm font-bold text-text-primary">
-                    {formatCurrency(session.user.balance)}
-                  </span>
-                </Link>
-
                 {/* User menu */}
                 <div className="relative">
                   <button
@@ -174,25 +135,12 @@ export default function Navbar() {
         {menuOpen && session && (
           <div className="md:hidden pb-4 border-t border-border mt-2 pt-4 space-y-1 animate-fade-in">
             <Link
-              href="/"
+              href="/games"
               onClick={() => setMenuOpen(false)}
-              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
+              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg flex items-center gap-1.5"
             >
-              Fights
-            </Link>
-            <Link
-              href="/my-bets"
-              onClick={() => setMenuOpen(false)}
-              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
-            >
-              My Bets
-            </Link>
-            <Link
-              href="/wallet"
-              onClick={() => setMenuOpen(false)}
-              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
-            >
-              Wallet — FC {formatCurrency(session.user.balance)}
+              <Gamepad className="h-4 w-4" />
+              Games
             </Link>
             <Link
               href="/groups"
@@ -200,20 +148,6 @@ export default function Navbar() {
               className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
             >
               Groups
-            </Link>
-            <Link
-              href="/challenges"
-              onClick={() => setMenuOpen(false)}
-              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
-            >
-              Challenges
-            </Link>
-            <Link
-              href="/leaderboard"
-              onClick={() => setMenuOpen(false)}
-              className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface rounded-lg"
-            >
-              Leaderboard
             </Link>
           </div>
         )}

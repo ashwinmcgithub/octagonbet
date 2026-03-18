@@ -174,21 +174,37 @@ async function main() {
     }
   }
 
-  // Seed demo fights
-  console.log('\nCreating demo fights...')
+  // Seed upcoming UFC fights so fresh installs are not empty
+  console.log('\nCreating UFC fight polls...')
+  const mainCardTime = new Date('2026-03-15T01:00:00.000Z') // 6:30 AM IST
+  const prelimTime = new Date('2026-03-14T22:00:00.000Z') // 3:30 AM IST
+
   const fights = [
-    { exId: 'demo-1', home: 'Jon Jones', away: 'Stipe Miocic', homeOdds: -450, awayOdds: 320, days: 3 },
-    { exId: 'demo-2', home: 'Islam Makhachev', away: 'Charles Oliveira', homeOdds: -300, awayOdds: 240, days: 5 },
-    { exId: 'demo-3', home: 'Alex Pereira', away: 'Jiri Prochazka', homeOdds: -175, awayOdds: 145, days: 7 },
+    { exId: 'ufc-fn-269-main-1', home: 'Kevin Vallejos', away: 'Josh Emmett', homeOdds: -500, awayOdds: 375, commence: mainCardTime, eventName: 'UFC Fight Night - Main Event - Featherweight' },
+    { exId: 'ufc-fn-269-main-2', home: 'Gillian Robertson', away: 'Amanda Lemos', homeOdds: -250, awayOdds: 210, commence: mainCardTime, eventName: "UFC Fight Night - Co-Main - Women's Strawweight" },
+    { exId: 'ufc-fn-269-main-3', home: 'Oumar Sy', away: 'Ion Cutelaba', homeOdds: -200, awayOdds: 170, commence: mainCardTime, eventName: 'UFC Fight Night - Main Card - Light Heavyweight' },
+    { exId: 'ufc-fn-269-main-4', home: 'Jose Delgado', away: 'Andre Fili', homeOdds: -300, awayOdds: 250, commence: mainCardTime, eventName: 'UFC Fight Night - Main Card - Featherweight' },
+    { exId: 'ufc-fn-269-main-5', home: 'Marwan Rahiki', away: 'Harry Hardwick', homeOdds: -200, awayOdds: 170, commence: mainCardTime, eventName: 'UFC Fight Night - Main Card - Featherweight' },
+    { exId: 'ufc-fn-269-main-6', home: 'Vitor Petrino', away: 'Steven Asplund', homeOdds: -250, awayOdds: 210, commence: mainCardTime, eventName: 'UFC Fight Night - Main Card - Heavyweight' },
+    { exId: 'ufc-fn-269-prelim-1', home: 'Brad Tavares', away: 'Eryk Anders', homeOdds: -185, awayOdds: 160, commence: prelimTime, eventName: 'UFC Fight Night - Prelims - Middleweight' },
   ]
 
+  await run('Delete legacy demo fights', `
+    DELETE FROM "Fight" WHERE "externalId" IN ('demo-1', 'demo-2', 'demo-3')
+  `)
+
   for (const f of fights) {
-    const commence = new Date(Date.now() + f.days * 24 * 60 * 60 * 1000)
     await run(`${f.home} vs ${f.away}`, `
-      INSERT INTO "Fight" (id, "externalId", "homeTeam", "awayTeam", "homeOdds", "awayOdds", "commenceTime")
-      VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6)
-      ON CONFLICT ("externalId") DO NOTHING
-    `, [f.exId, f.home, f.away, f.homeOdds, f.awayOdds, commence])
+      INSERT INTO "Fight" (id, "externalId", "homeTeam", "awayTeam", "homeOdds", "awayOdds", "commenceTime", "eventName")
+      VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT ("externalId") DO UPDATE SET
+        "homeTeam" = EXCLUDED."homeTeam",
+        "awayTeam" = EXCLUDED."awayTeam",
+        "homeOdds" = EXCLUDED."homeOdds",
+        "awayOdds" = EXCLUDED."awayOdds",
+        "commenceTime" = EXCLUDED."commenceTime",
+        "eventName" = EXCLUDED."eventName"
+    `, [f.exId, f.home, f.away, f.homeOdds, f.awayOdds, f.commence, f.eventName])
   }
 
   await pool.end()

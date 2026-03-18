@@ -54,14 +54,13 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.role = (user as any).role
       }
-      // Refresh balance from DB on each token refresh
+      // Refresh role from DB on each token refresh
       if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { balance: true, role: true, name: true, image: true },
+          select: { role: true, name: true, image: true },
         })
         if (dbUser) {
-          token.balance = dbUser.balance
           token.role = dbUser.role
         }
       }
@@ -71,7 +70,6 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
-        session.user.balance = token.balance as number
       }
       return session
     },
@@ -89,15 +87,6 @@ export const authOptions: NextAuthOptions = {
         where: { id: user.id },
         data: { referralCode },
       })
-
-      await prisma.transaction.create({
-        data: {
-          userId: user.id,
-          type: 'initial',
-          amount: 1000,
-          description: 'Welcome bonus — 1,000 ApexCoins to get you started!',
-        },
-      })
     },
   },
 }
@@ -110,7 +99,6 @@ declare module 'next-auth' {
       email?: string | null
       image?: string | null
       role: string
-      balance: number
     }
   }
 }

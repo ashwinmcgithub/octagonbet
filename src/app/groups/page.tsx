@@ -90,7 +90,7 @@ export default function GroupsPage() {
               <Users className="h-6 w-6 text-primary" />
               Groups
             </h1>
-            <p className="text-sm text-muted mt-0.5">Chat with friends and bet together</p>
+            <p className="text-sm text-muted mt-0.5">Chat and connect with friends</p>
           </div>
           <div className="flex gap-2">
             <button

@@ -17,14 +17,15 @@ test.describe('My Bets Page', () => {
   })
 
   test('my-bets page loads for authenticated user', async ({ page }) => {
-    await expect(page.locator('text=My Bets')).toBeVisible()
+    await expect(page.locator('text=My Bets').first()).toBeVisible()
     await expect(page.locator('text=Track all your fight predictions')).toBeVisible()
   })
 
   test('summary stats section is visible (Total Bets, Total Won, Pending)', async ({ page }) => {
-    await expect(page.locator('text=Total Bets')).toBeVisible()
-    await expect(page.locator('text=Total Won')).toBeVisible()
-    await expect(page.locator('text=Pending')).toBeVisible()
+    await expect(page.locator('text=Total Bets').first()).toBeVisible()
+    await expect(page.locator('text=Total Won').first()).toBeVisible()
+    // "Pending" appears in both stats card and filter tab — use first()
+    await expect(page.locator('text=Pending').first()).toBeVisible()
   })
 
   test('filter tabs present: All, Pending, Won, Lost', async ({ page }) => {
@@ -35,7 +36,7 @@ test.describe('My Bets Page', () => {
   })
 
   test('empty state shows when no bets placed yet', async ({ page }) => {
-    await expect(page.locator('text=/no bets|place your first/i')).toBeVisible()
+    await expect(page.locator('text=/no bets|place your first/i').first()).toBeVisible()
     await expect(page.locator('text=View Fights')).toBeVisible()
   })
 
@@ -55,18 +56,24 @@ test.describe('Bet status after placing — Q3 Auto-Settlement', () => {
     await page.goto('/')
     await page.waitForTimeout(3000)
 
-    const fighterBtn = page.locator('button').filter({ hasText: /[A-Z]{2,}/ }).first()
-    if (await fighterBtn.count() > 0) {
+    // Wait for session balance to load before clicking fighters
+    await page.waitForFunction(
+      () => document.querySelector('nav')?.textContent?.includes('1,'),
+      { timeout: 15000 }
+    )
+
+    const fighterBtn = page.locator('button').filter({ hasText: /Jones|Makhachev|Pereira|Miocic|Oliveira|Prochazka/ }).first()
+    if (await fighterBtn.count() > 0 && await fighterBtn.isVisible()) {
       await fighterBtn.click()
-      await expect(page.locator('text=Place Your Bet')).toBeVisible({ timeout: 8000 })
+      await expect(page.getByText('Place Your Bet', { exact: true })).toBeVisible({ timeout: 8000 })
       await page.fill('input[type="number"]', '50')
       await page.locator('button').filter({ hasText: /Place Bet/i }).click()
-      await expect(page.locator('text=/Bet Placed/i')).toBeVisible({ timeout: 10000 })
+      await expect(page.locator('text=/Bet Placed/i').first()).toBeVisible({ timeout: 10000 })
 
       await page.goto('/my-bets')
-      await expect(page.locator('text=Pending')).toBeVisible({ timeout: 8000 })
+      await expect(page.locator('text=Pending').first()).toBeVisible({ timeout: 8000 })
       // Total Bets count = 1
-      await expect(page.locator('text=/^1$/')).toBeVisible()
+      await expect(page.locator('text=/^1$/').first()).toBeVisible()
     }
   })
 
@@ -91,6 +98,6 @@ test.describe('Bet status after placing — Q3 Auto-Settlement', () => {
     // Transaction history handles 'refund' type (part of Q8 valid types)
     await expect(page.locator('text=Transaction History')).toBeVisible()
     // Refund label config exists — verified by welcome bonus showing correctly
-    await expect(page.locator('text=Welcome Bonus')).toBeVisible()
+    await expect(page.locator('text=Welcome Bonus').first()).toBeVisible()
   })
 })

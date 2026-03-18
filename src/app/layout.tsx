@@ -7,8 +7,8 @@ import Navbar from '@/components/Navbar'
 import LoadingScreen from '@/components/LoadingScreen'
 
 export const metadata: Metadata = {
-  title: 'ApexWager — Live Sports Betting',
-  description: 'Premium sports betting with live odds and real-time updates. UFC, MMA and more.',
+  title: 'Apex Wager — Play Smart Games',
+  description: 'Outsmart your friends in deduction games. Find the Imposter, Phantom Protocol, and more.',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

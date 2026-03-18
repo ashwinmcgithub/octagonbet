@@ -9,43 +9,49 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-  const [userCount, fightCount, betCount, pendingBets, newUsersThisWeek, platformBalance, recentUsers] = await Promise.all([
+  const [
+    totalUsers,
+    newUsersToday,
+    newUsersThisWeek,
+    totalGameRooms,
+    activeGameRooms,
+    gamePlayersToday,
+    recentUsers,
+    allUsers,
+  ] = await Promise.all([
     prisma.user.count(),
-    prisma.fight.count({ where: { NOT: { status: 'cancelled' } } }),
-    prisma.bet.count(),
-    prisma.bet.aggregate({
-      where: { status: 'pending' },
-      _sum: { amount: true },
-      _count: true,
-    }),
+    prisma.user.count({ where: { createdAt: { gte: startOfToday } } }),
     prisma.user.count({ where: { createdAt: { gte: oneWeekAgo } } }),
-    prisma.user.aggregate({ _sum: { balance: true } }),
+    prisma.gameRoom.count(),
+    prisma.gameRoom.count({ where: { status: { in: ['lobby', 'active', 'voting', 'last_stand'] } } }),
+    // distinct users who joined/hosted a game room today
+    prisma.gamePlayer.groupBy({
+      by: ['userId'],
+      where: { joinedAt: { gte: startOfToday } },
+    }),
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 5,
+      take: 10,
+      select: { id: true, name: true, email: true, createdAt: true, role: true },
+    }),
+    prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
       select: { id: true, name: true, email: true, createdAt: true, role: true },
     }),
   ])
 
-  const betsByStatus = await prisma.bet.groupBy({
-    by: ['status'],
-    _count: true,
-    _sum: { amount: true },
-  })
-
   return NextResponse.json({
-    userCount,
-    fightCount,
-    betCount,
-    pendingBets: {
-      count: pendingBets._count,
-      totalAmount: pendingBets._sum.amount ?? 0,
-    },
-    betsByStatus,
+    totalUsers,
+    newUsersToday,
     newUsersThisWeek,
-    platformBalance: platformBalance._sum.balance ?? 0,
+    totalGameRooms,
+    activeGameRooms,
+    gamePlayersToday: gamePlayersToday.length,
     recentUsers,
+    allUsers,
   })
 }

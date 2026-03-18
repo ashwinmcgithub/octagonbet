@@ -1,0 +1,21 @@
+Instructions for AI: "Please act as a QA Engineer and answer the following questions based on the provided OctagonBet PRD (v1.2). For each question, explain why the answer is correct based on the business rules provided in the document."
+
+Architecture: Which specific framework, styling library, and database ORM are mandated by the PRD for this project?
+
+Referral Logic: If User A shares their code with User B, what is the exact FightCoin (FC) reward, and who receives it?
+
+Automated Settlement: Describe the trigger mechanism that causes a bet to move from "Pending" to "Won" or "Lost" without manual intervention.
+
+Recharge Policy: According to the v1.2 business rules, what happens when a user clicks the "Recharge" button? (Hint: Does this button exist?)
+
+Social Dependency: If a user’s balance hits 0 FC, what are the only two ways they can continue to participate in betting?
+
+Cancellation Policy: How does the system handle an event that is officially marked as "Cancelled" by The Odds API?
+
+Role Permissions: Contrast the capabilities of a "Guest" user versus an "Admin" user.
+
+Transaction Ledger: List all valid transaction types that must be recorded in the Transaction table.
+
+Odds Formatting: If a fighter is listed as "+150", what is the required display format, and can the user toggle to decimal odds?
+
+Referral Tracking: Which two fields must be added to the User table to support the new referral program?

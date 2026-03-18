@@ -20,10 +20,8 @@ export async function GET() {
       name: true,
       email: true,
       image: true,
-      balance: true,
       role: true,
       createdAt: true,
-      _count: { select: { bets: true } },
     },
   })
 
@@ -34,15 +32,14 @@ export async function PATCH(req: Request) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { userId, balance, role } = await req.json()
+  const { userId, role } = await req.json()
 
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
-      ...(balance !== undefined && { balance }),
       ...(role !== undefined && { role }),
     },
-    select: { id: true, balance: true, role: true },
+    select: { id: true, role: true },
   })
 
   return NextResponse.json(user)

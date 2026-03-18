@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import { Plus, Trash2, Eye, EyeOff } from 'lucide-react'
-import { SPORT_META } from '@/components/SportEventCard'
+import { SPORT_META } from '@/lib/sport-meta'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 

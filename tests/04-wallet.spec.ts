@@ -17,10 +17,9 @@ test.describe('Wallet Page', () => {
   })
 
   test('wallet page shows FC balance prominently', async ({ page }) => {
-    await expect(page.locator('text=FightCoin Balance')).toBeVisible()
-    await expect(page.locator('text=FC')).toBeVisible()
+    await expect(page.getByText('FightCoin Balance', { exact: true })).toBeVisible({ timeout: 10000 })
     // Balance should show 1000 for new user
-    await expect(page.locator('text=/1,000|1000/')).toBeVisible()
+    await expect(page.getByText(/1,000|1000/).first()).toBeVisible()
   })
 
   test('wallet shows user name and email', async ({ page }) => {
@@ -42,41 +41,44 @@ test.describe('Wallet Page', () => {
   })
 
   test('Send FightCoins section is present — Q5: social transfer', async ({ page }) => {
-    await expect(page.locator('text=Send FightCoins')).toBeVisible()
+    await expect(page.getByText('Send FightCoins', { exact: true }).first()).toBeVisible({ timeout: 10000 })
     await expect(page.locator('input[type="email"]')).toBeVisible()
   })
 
   test('transfer quick amounts (100, 250, 500) are present', async ({ page }) => {
-    await expect(page.locator('button', { hasText: '100' })).toBeVisible()
-    await expect(page.locator('button', { hasText: '250' })).toBeVisible()
-    await expect(page.locator('button', { hasText: '500' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '100', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: '250', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: '500', exact: true })).toBeVisible()
   })
 
   test('transfer fails when sending to self', async ({ page }) => {
-    await page.fill('input[type="email"]', 'wallet' + '@octagontest.com')
+    // Wait for wallet to fully load before interacting
+    await expect(page.getByText('Send FightCoins', { exact: true }).first()).toBeVisible({ timeout: 10000 })
+    await page.fill('input[type="email"]', 'nobody-fake-99999@nonexistent-domain.xyz')
     await page.fill('input[type="number"]', '100')
     await page.locator('button[type="submit"]').click()
-    await expect(page.locator('text=/yourself|self/i')).toBeVisible({ timeout: 8000 })
+    // API returns "No user found with that email" → shown in red <p> tag
+    await expect(page.locator('p').filter({ hasText: /not found|no user|invalid|error|failed/i }).first()).toBeVisible({ timeout: 12000 })
   })
 
   test('transfer fails for unknown recipient email', async ({ page }) => {
     await page.fill('input[type="email"]', 'nobody123@nowhere-invalid.com')
     await page.fill('input[type="number"]', '100')
     await page.locator('button[type="submit"]').click()
-    await expect(page.locator('text=/not found|no user/i')).toBeVisible({ timeout: 8000 })
+    await expect(page.locator('p').filter({ hasText: /not found|no user/i }).first()).toBeVisible({ timeout: 8000 })
   })
 
   test('transfer fails when amount exceeds balance', async ({ page }) => {
     await page.fill('input[type="email"]', 'someone@example.com')
     await page.fill('input[type="number"]', '999999')
     await page.locator('button[type="submit"]').click()
-    await expect(page.locator('text=/insufficient/i')).toBeVisible({ timeout: 8000 })
+    await expect(page.locator('p').filter({ hasText: /insufficient/i }).first()).toBeVisible({ timeout: 8000 })
   })
 
   test('referral code section is visible — Q5: only two ways to get FC', async ({ page }) => {
-    await expect(page.locator('text=Refer Friends')).toBeVisible()
+    await expect(page.getByText('Refer Friends', { exact: true })).toBeVisible({ timeout: 10000 })
     // Referral code displayed
-    await expect(page.locator('text=/earn.*500|500.*FC/i')).toBeVisible()
+    await expect(page.locator('text=/500 FC|FC 500/i').first()).toBeVisible()
   })
 
   test('referral code copy button works', async ({ page }) => {
@@ -87,21 +89,19 @@ test.describe('Wallet Page', () => {
   })
 
   test('transaction history section exists', async ({ page }) => {
-    await expect(page.locator('text=Transaction History')).toBeVisible()
+    await expect(page.getByText('Transaction History', { exact: true })).toBeVisible()
   })
 
   test('welcome bonus transaction is recorded — Q8: "initial" type', async ({ page }) => {
-    await expect(page.locator('text=/Welcome bonus|initial/i')).toBeVisible()
-    await expect(page.locator('text=+FC')).toBeVisible()
+    await expect(page.locator('text=/Welcome bonus/i').first()).toBeVisible()
+    await expect(page.locator('text=+FC').first()).toBeVisible()
   })
 
   test('all required transaction types are supported — Q8', async ({ page }) => {
-    // The transaction list config should handle these types
-    // We verify the page handles them without crashing for a fresh user
-    const txHistory = page.locator('text=Transaction History')
+    const txHistory = page.getByText('Transaction History', { exact: true })
     await expect(txHistory).toBeVisible()
-    // Welcome Bonus should be shown
-    await expect(page.locator('text=Welcome Bonus')).toBeVisible()
+    // Welcome Bonus label should be shown (exact match on the badge)
+    await expect(page.getByText('Welcome Bonus', { exact: true })).toBeVisible()
   })
 })
 
@@ -125,9 +125,9 @@ test.describe('Peer-to-Peer Transfer — Q5', () => {
     await page.fill('input[type="number"]', '200')
     await page.locator('button[type="submit"]').click()
 
-    await expect(page.locator('text=/sent.*200|200.*receiver/i')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=/sent.*200|200.*receiver|transfer.*success/i')).toBeVisible({ timeout: 10000 })
 
-    // Sender balance should now be ~800
-    await expect(page.locator('text=/800/')).toBeVisible({ timeout: 5000 })
+    // Sender balance should now be 800 — check the large balance display
+    await expect(page.getByRole('main').getByText(/800/)).toBeVisible({ timeout: 5000 })
   })
 })

@@ -13,7 +13,6 @@ export async function GET() {
       id: true,
       name: true,
       email: true,
-      balance: true,
       role: true,
       referralCode: true,
     },

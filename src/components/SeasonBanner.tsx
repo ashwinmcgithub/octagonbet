@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import useSWR from 'swr'
 import { Bell, ChevronLeft, ChevronRight, Clock, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SPORT_META } from './SportEventCard'
+import { SPORT_META } from '@/lib/sport-meta'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 

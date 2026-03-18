@@ -17,7 +17,7 @@ export async function registerUser(page: Page, name: string, email: string, pass
     await page.fill('input[placeholder*="e.g."]', referralCode)
   }
   await page.click('button[type="submit"]')
-  await page.waitForURL('/', { timeout: 60000 })
+  await page.waitForURL('/', { timeout: 45000 })
 }
 
 export async function loginUser(page: Page, email: string, password: string) {
@@ -25,7 +25,11 @@ export async function loginUser(page: Page, email: string, password: string) {
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
   await page.click('button[type="submit"]')
-  await page.waitForURL('/', { timeout: 60000 })
+  // Wait for any navigation away from /login (could go to / or /admin)
+  await page.waitForFunction(
+    () => !window.location.pathname.startsWith('/login'),
+    { timeout: 30000 }
+  )
 }
 
 export async function getBalance(page: Page): Promise<number> {

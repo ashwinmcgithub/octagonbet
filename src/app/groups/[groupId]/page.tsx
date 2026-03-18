@@ -4,10 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Send, Users, Hash, Copy, Check, ChevronDown, ChevronUp, Plus, Paperclip, X, Loader2, Pencil } from 'lucide-react'
+import { ArrowLeft, Send, Users, Hash, Copy, Check, Paperclip, X, Loader2, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { formatOdds } from '@/lib/utils'
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -23,33 +22,6 @@ interface Message {
   user: UserInfo
 }
 
-interface GroupBetShare {
-  id: string
-  userId: string
-  amount: number
-  payout: number | null
-  user: UserInfo
-}
-
-interface GroupBet {
-  id: string
-  fighter: string
-  totalAmount: number
-  status: string
-  createdAt: string
-  fight: {
-    id: string
-    homeTeam: string
-    awayTeam: string
-    homeOdds: number | null
-    awayOdds: number | null
-    status: string
-    winner: string | null
-    eventName: string | null
-  }
-  shares: GroupBetShare[]
-}
-
 interface GroupInfo {
   id: string
   name: string
@@ -57,16 +29,6 @@ interface GroupInfo {
   inviteCode: string
   owner: UserInfo
   members: { joinedAt: string; user: UserInfo }[]
-}
-
-interface Fight {
-  id: string
-  homeTeam: string
-  awayTeam: string
-  homeOdds: number | null
-  awayOdds: number | null
-  status: string
-  eventName: string | null
 }
 
 export default function GroupRoomPage() {
@@ -80,9 +42,6 @@ export default function GroupRoomPage() {
   const [lastTimestamp, setLastTimestamp] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [showMembers, setShowMembers] = useState(false)
-  const [showBets, setShowBets] = useState(true)
-  const [showPropose, setShowPropose] = useState(false)
-  const [showJoinBet, setShowJoinBet] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -98,25 +57,7 @@ export default function GroupRoomPage() {
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
-  // Propose bet form
-  const [propFightId, setPropFightId] = useState('')
-  const [propFighter, setPropFighter] = useState('')
-  const [propAmount, setPropAmount] = useState('')
-  const [propLoading, setPropLoading] = useState(false)
-  const [propError, setPropError] = useState('')
-
-  // Join bet form
-  const [joinAmount, setJoinAmount] = useState('')
-  const [joinLoading, setJoinLoading] = useState(false)
-  const [joinError, setJoinError] = useState('')
-
   const { data: group, mutate: mutateGroup } = useSWR<GroupInfo>(`/api/groups/${groupId}`, fetcher)
-  const { data: bets, mutate: mutateBets } = useSWR<GroupBet[]>(
-    `/api/groups/${groupId}/bets`, fetcher, { refreshInterval: 5000 }
-  )
-  const { data: fights } = useSWR<Fight[]>('/api/odds/sync', fetcher)
-
-  const upcomingFights = fights?.filter((f) => f.status === 'upcoming') ?? []
 
   // Poll messages every 3s
   useEffect(() => {
@@ -268,55 +209,12 @@ export default function GroupRoomPage() {
     }
   }
 
-  async function handlePropose(e: React.FormEvent) {
-    e.preventDefault()
-    setPropLoading(true)
-    setPropError('')
-    try {
-      const res = await fetch(`/api/groups/${groupId}/bets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fightId: propFightId, fighter: propFighter, amount: parseFloat(propAmount) }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setPropError(data.error); return }
-      mutateBets()
-      setShowPropose(false)
-      setPropFightId('')
-      setPropFighter('')
-      setPropAmount('')
-    } finally {
-      setPropLoading(false)
-    }
-  }
-
-  async function handleJoinBet(betId: string) {
-    setJoinLoading(true)
-    setJoinError('')
-    try {
-      const res = await fetch(`/api/groups/${groupId}/bets/${betId}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(joinAmount) }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setJoinError(data.error); return }
-      mutateBets()
-      setShowJoinBet(null)
-      setJoinAmount('')
-    } finally {
-      setJoinLoading(false)
-    }
-  }
-
   function copyCode() {
     if (!group) return
     navigator.clipboard.writeText(group.inviteCode)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
-
-  const selectedFight = upcomingFights.find((f) => f.id === propFightId)
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -394,11 +292,11 @@ export default function GroupRoomPage() {
         )}
       </div>
 
-      <div className="mx-auto w-full max-w-4xl flex-1 flex flex-col lg:flex-row gap-0 lg:gap-6 px-4 py-3">
+      <div className="mx-auto w-full max-w-4xl flex-1 flex flex-col px-4 py-3">
         {/* Chat column */}
-        <div className="flex flex-col min-h-0 lg:flex-1">
+        <div className="flex flex-col min-h-0 flex-1">
           {/* Messages */}
-          <div className="overflow-y-auto scrollbar-hide space-y-3 pb-4 h-[55vh] lg:h-[65vh]">
+          <div className="overflow-y-auto scrollbar-hide space-y-3 pb-4 h-[65vh]">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full py-12 text-center">
                 <p className="text-sm text-muted">No messages yet. Say hello!</p>
@@ -515,203 +413,6 @@ export default function GroupRoomPage() {
               </button>
             </form>
           </div>
-        </div>
-
-        {/* Group Bets sidebar */}
-        <div className="lg:w-72 space-y-3 mt-2 lg:mt-0">
-          <button
-            onClick={() => setShowBets(!showBets)}
-            className="w-full flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-text-primary hover:border-border-bright transition-colors"
-          >
-            <span>Group Bets</span>
-            <div className="flex items-center gap-2">
-              {bets && <span className="text-xs text-muted">{bets.length}</span>}
-              {showBets ? <ChevronUp className="h-4 w-4 text-muted" /> : <ChevronDown className="h-4 w-4 text-muted" />}
-            </div>
-          </button>
-
-          {showBets && (
-            <div className="space-y-3">
-              {/* Propose bet button */}
-              <button
-                onClick={() => { setShowPropose(!showPropose); setPropError('') }}
-                className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-primary/40 py-2.5 text-sm font-semibold text-primary hover:border-primary hover:bg-primary/5 transition-all"
-              >
-                <Plus className="h-4 w-4" />
-                Propose Group Bet
-              </button>
-
-              {/* Propose form */}
-              {showPropose && (
-                <form onSubmit={handlePropose} className="rounded-xl border border-border bg-surface p-4 space-y-3 animate-fade-in">
-                  {propError && <p className="text-xs text-primary">{propError}</p>}
-                  <select
-                    value={propFightId}
-                    onChange={(e) => { setPropFightId(e.target.value); setPropFighter('') }}
-                    required
-                    className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-text-primary focus:border-primary focus:outline-none"
-                  >
-                    <option value="">Select fight…</option>
-                    {upcomingFights.map((f) => (
-                      <option key={f.id} value={f.id}>{f.homeTeam} vs {f.awayTeam}</option>
-                    ))}
-                  </select>
-
-                  {selectedFight && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPropFighter('home')}
-                        className={cn(
-                          'rounded-lg border py-2 text-xs font-bold transition-colors',
-                          propFighter === 'home'
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border bg-surface-2 text-text-secondary hover:border-border-bright'
-                        )}
-                      >
-                        {selectedFight.homeTeam.split(' ').slice(-1)[0]}
-                        {selectedFight.homeOdds && (
-                          <span className={cn('block text-[10px] mt-0.5', selectedFight.homeOdds > 0 ? 'text-win' : 'text-primary')}>
-                            {formatOdds(selectedFight.homeOdds)}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPropFighter('away')}
-                        className={cn(
-                          'rounded-lg border py-2 text-xs font-bold transition-colors',
-                          propFighter === 'away'
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border bg-surface-2 text-text-secondary hover:border-border-bright'
-                        )}
-                      >
-                        {selectedFight.awayTeam.split(' ').slice(-1)[0]}
-                        {selectedFight.awayOdds && (
-                          <span className={cn('block text-[10px] mt-0.5', selectedFight.awayOdds > 0 ? 'text-win' : 'text-primary')}>
-                            {formatOdds(selectedFight.awayOdds)}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={propAmount}
-                    onChange={(e) => setPropAmount(e.target.value)}
-                    placeholder="Your stake (FC)"
-                    required
-                    className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-text-primary placeholder:text-muted focus:border-primary focus:outline-none"
-                  />
-
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setShowPropose(false)} className="flex-1 rounded-lg border border-border py-2 text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors">
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={propLoading || !propFightId || !propFighter || !propAmount}
-                      className="flex-1 rounded-lg bg-primary hover:bg-primary-hover py-2 text-xs font-bold text-white transition-colors disabled:opacity-50"
-                    >
-                      {propLoading ? 'Placing…' : 'Place'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Bets list */}
-              {bets?.map((bet) => {
-                const isMember = bet.shares.some((s) => s.userId === session.user.id)
-                const myShare = bet.shares.find((s) => s.userId === session.user.id)
-                const fightOdds = bet.fighter === 'home' ? bet.fight.homeOdds : bet.fight.awayOdds
-                const fighterName = bet.fighter === 'home' ? bet.fight.homeTeam : bet.fight.awayTeam
-
-                return (
-                  <div key={bet.id} className="rounded-xl border border-border bg-surface p-3.5 space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs text-muted">{bet.fight.homeTeam} vs {bet.fight.awayTeam}</p>
-                        <p className="text-sm font-bold text-text-primary mt-0.5">
-                          {fighterName.split(' ').slice(-1)[0]}
-                          {fightOdds && (
-                            <span className={cn('ml-1.5 text-xs font-black', fightOdds > 0 ? 'text-win' : 'text-primary')}>
-                              {formatOdds(fightOdds)}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <span className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
-                        bet.status === 'open' ? 'bg-primary/10 text-primary border border-primary/20' :
-                        bet.status === 'won' ? 'bg-win/10 text-win border border-win/20' :
-                        'bg-surface-2 text-muted border border-border'
-                      )}>
-                        {bet.status.toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Shares */}
-                    <div className="space-y-1">
-                      {bet.shares.map((share) => (
-                        <div key={share.id} className="flex items-center justify-between text-[11px]">
-                          <span className="text-muted">{share.user.name}</span>
-                          <span className={cn('font-bold', share.payout ? 'text-win' : 'text-text-secondary')}>
-                            FC {share.amount.toFixed(0)}
-                            {share.payout ? ` → FC ${share.payout.toFixed(0)}` : ''}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-border">
-                      <span className="text-[11px] text-muted">Total pool: FC {bet.totalAmount.toFixed(0)}</span>
-                      {bet.status === 'open' && !isMember && (
-                        <button
-                          onClick={() => { setShowJoinBet(bet.id); setJoinError(''); setJoinAmount('') }}
-                          className="text-[11px] font-bold text-primary hover:underline"
-                        >
-                          Join bet
-                        </button>
-                      )}
-                      {bet.status === 'open' && isMember && (
-                        <span className="text-[11px] text-win font-semibold">Joined</span>
-                      )}
-                    </div>
-
-                    {/* Join bet inline form */}
-                    {showJoinBet === bet.id && (
-                      <div className="space-y-2 pt-1 animate-fade-in">
-                        {joinError && <p className="text-[11px] text-primary">{joinError}</p>}
-                        <input
-                          type="number"
-                          min="1"
-                          value={joinAmount}
-                          onChange={(e) => setJoinAmount(e.target.value)}
-                          placeholder="Your stake (FC)"
-                          className="w-full rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs text-text-primary placeholder:text-muted focus:border-primary focus:outline-none"
-                        />
-                        <div className="flex gap-2">
-                          <button onClick={() => setShowJoinBet(null)} className="flex-1 rounded-lg border border-border py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors">
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => handleJoinBet(bet.id)}
-                            disabled={joinLoading || !joinAmount}
-                            className="flex-1 rounded-lg bg-primary py-1.5 text-xs font-bold text-white transition-colors disabled:opacity-50"
-                          >
-                            {joinLoading ? '…' : 'Confirm'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
         </div>
       </div>
     </div>

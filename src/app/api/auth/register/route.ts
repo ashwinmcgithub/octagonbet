@@ -53,36 +53,10 @@ export async function POST(req: Request) {
         email,
         password: hashed,
         phone: phone || null,
-        balance: 1000,
         referralCode: newReferralCode,
         referredBy: referrer?.id ?? null,
-        transactions: {
-          create: {
-            type: 'initial',
-            amount: 1000,
-            description: 'Welcome bonus — 1,000 ApexCoins to get you started!',
-          },
-        },
       },
     })
-
-    // Credit referrer 500 FC
-    if (referrer) {
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: referrer.id },
-          data: { balance: { increment: 500 } },
-        }),
-        prisma.transaction.create({
-          data: {
-            userId: referrer.id,
-            type: 'referral_bonus',
-            amount: 500,
-            description: `Referral bonus — ${name} signed up with your code!`,
-          },
-        }),
-      ])
-    }
 
     return NextResponse.json({ id: user.id, email: user.email }, { status: 201 })
   } catch (err: any) {

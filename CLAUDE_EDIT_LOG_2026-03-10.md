@@ -134,3 +134,53 @@ model Message {
 | `DATABASE_URL` | Neon PostgreSQL | Must include `channel_binding=disable` |
 | `NEXTAUTH_SECRET` | — | JWT signing |
 | `NEXTAUTH_URL` | `https://octagonbet.vercel.app` | Must match exactly |
+
+## 2026-03-12
+- Removed Observation Deck game route and card.
+- Added Games Hub banner on homepage linking to /games.
+- Added Outpost Anomaly as a game in the games list (kept).
+- Moved new game images to public/games and wired them into Find the Imposter and Phantom Protocol cards with responsive Next/Image.
+- Updated chat input on Find the Imposter room to be sticky on mobile (safe-area padding).
+
+## 2026-03-12 (Find the Imposter updates)
+- Added early-round voting after each clue round and updated vote resolution logic.
+- Added rematch API and UI button to reuse the same room after completion.
+- Split clue input from chat input (two bars) and kept chat always available.
+- Added low-volume looping background music during active/voting/last-stand phases.
+
+## 2026-03-13
+- Simplified the front page to two primary options (Games and UFC Betting).
+- Added a clear sign-in note on the Games card and tightened CTA styling.
+
+## 2026-03-13
+- Fixed UTF-8 build failure on betting page by rewriting with ASCII-safe labels.
+- Deployed production build to octagonbet.vercel.app.
+
+## 2026-03-13 (Find the Imposter voting + elimination)
+- Added no-vote option during round voting and majority-based elimination.
+- Eliminated players become spectators and are excluded from clue turns and voting.
+
+## 2026-03-13 (Outpost Anomaly UX)
+- Added an intro briefing modal and exit-confirm dialog (back button and Back to Games).
+- Added crew color dots to each log entry and enhanced the spatial grid styling.
+- Replaced Advance Day with Next Day + Previous Day and removed New Run.
+
+## 2026-03-13 (Games visuals)
+- Added background image to the games section with low opacity.
+- Added Game Zone and UFC Betting intro images to the homepage cards.
+
+## 2026-03-13 (Outpost Anomaly grid rollback)
+- Reverted the arcade-style grid redesign back to the simpler grid layout.
+- Ensured crew dots in the comms log are full circles.
+
+## 2026-03-13 (Game audio)
+- Added Phantom Protocol background music and set game music volume to 15%.
+
+## 2026-03-13
+- Added Outpost Anomaly background music at 15% volume on start (loops).
+
+## 2026-03-13
+- Added intro images to Find the Imposter lobby and room views, and to Phantom Protocol room header.
+
+## 2026-03-15
+- Hardened Outpost Anomaly clue difficulty with denser legit vocab, more technical imposter phrasing, and closer mismatch rates.

@@ -128,6 +128,6 @@ test.describe('Role Permissions (Gemini QA Q7)', () => {
   test('admin panel is accessible to admin user', async ({ page }) => {
     await loginUser(page, 'admin@octagonbet.com', 'admin123')
     await page.goto('/admin')
-    await expect(page.locator('text=Dashboard')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 })
   })
 })

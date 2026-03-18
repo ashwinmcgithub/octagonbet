@@ -14,26 +14,20 @@ model User {
   image         String?
   password      String?
   phone         String?
-  balance       Float     @default(1000)
-  reputation    Int       @default(100)
   role          String    @default("user")
   referralCode  String?   @unique
   referredBy    String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts              Account[]
-  sessions              Session[]
-  bets                  Bet[]
-  transactions          Transaction[]
-  groupsOwned           Group[]
-  groupMembers          GroupMember[]
-  messages              Message[]
-  groupBetShares        GroupBetShare[]
-  challengesCreated     Challenge[]          @relation("ChallengeCreator")
-  challengeParticipants ChallengeParticipant[]
-  challengeProofs       ChallengeProof[]
-  marketBets            MarketBet[]
+  accounts        Account[]
+  sessions        Session[]
+  groupsOwned     Group[]
+  groupMembers    GroupMember[]
+  messages        Message[]
+  gameRoomsHosted GameRoom[]    @relation("GameRoomHost")
+  gamePlayers     GamePlayer[]
+  gameMessages    GameMessage[]
 }
 
 model Account {
@@ -71,24 +65,12 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Fight {
-  id             String    @id @default(cuid())
-  externalId     String    @unique
-  sport          String    @default("mma_mixed_martial_arts")
-  eventName      String?
-  homeTeam       String
-  awayTeam       String
-  commenceTime   DateTime
-  homeOdds       Float?
-  awayOdds       Float?
-  status         String    @default("upcoming")
-  winner         String?
-  lastOddsUpdate DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  bets      Bet[]
-  groupBets GroupBet[]
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
 }
 
 model Group {
@@ -100,10 +82,9 @@ model Group {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner     User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  members   GroupMember[]
-  messages  Message[]
-  groupBets GroupBet[]
+  owner    User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members  GroupMember[]
+  messages Message[]
 }
 
 model GroupMember {
@@ -124,175 +105,11 @@ model Message {
   userId    String
   content   String   @default("")
   mediaUrl  String?
-  mediaType String?  // "image" | "video"
+  mediaType String? // "image" | "video"
   createdAt DateTime @default(now())
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model GroupBet {
-  id          String   @id @default(cuid())
-  groupId     String
-  fightId     String
-  proposerId  String
-  fighter     String
-  totalAmount Float    @default(0)
-  status      String   @default("open")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  group   Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  fight   Fight           @relation(fields: [fightId], references: [id], onDelete: Cascade)
-  shares  GroupBetShare[]
-}
-
-model GroupBetShare {
-  id         String   @id @default(cuid())
-  groupBetId String
-  userId     String
-  amount     Float
-  payout     Float?
-  createdAt  DateTime @default(now())
-
-  groupBet GroupBet @relation(fields: [groupBetId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([groupBetId, userId])
-}
-
-// ── P2P / team challenges — bet on anything ─────────────────────────────────
-model Challenge {
-  id              String    @id @default(cuid())
-  title           String
-  description     String?
-  creatorId       String
-  prizeType       String   // "money" | "item"
-  prizeAmount     Float?   // FC stake per person (money bets)
-  prizeItem       String?  // item description (item bets)
-  status          String   @default("open")
-  // open → active → awaiting_resolution → completed | disputed | witness_review | cancelled
-  winningSide     String?  // "a" | "b"
-  inviteCode      String   @unique
-  resolveDeadline     DateTime?
-  witnessCode         String?   @unique
-  witnessId           String?
-  // Game verification
-  verificationSource  String?   // "chess.com" | "lichess" | "link"
-  verificationGameUrl String?   // full URL to the game
-  verificationGameId  String?   // extracted game ID
-  teamAUsername       String?   // Team A's in-game username
-  teamBUsername       String?   // Team B's in-game username
-  createdAt           DateTime  @default(now())
-  updatedAt       DateTime @updatedAt
-
-  creator      User                   @relation("ChallengeCreator", fields: [creatorId], references: [id])
-  participants ChallengeParticipant[]
-  proofs       ChallengeProof[]
-}
-
-model ChallengeParticipant {
-  id          String   @id @default(cuid())
-  challengeId String
-  userId      String
-  side        String   // "a" | "b"
-  payout      Float?
-  joinedAt    DateTime @default(now())
-
-  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([challengeId, userId])
-}
-
-model ChallengeProof {
-  id          String   @id @default(cuid())
-  challengeId String
-  submittedBy String
-  claimSide   String   // "a" | "b" — which side is claiming win
-  description String
-  mediaUrls   String[]
-  createdAt   DateTime @default(now())
-
-  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  submitter User      @relation(fields: [submittedBy], references: [id], onDelete: Cascade)
-}
-
-// ── Multi-sport events ──────────────────────────────────────────────────────
-model SportEvent {
-  id           String   @id @default(cuid())
-  externalId   String   @unique
-  sport        String   // cricket|football|mma|f1|kabaddi|tennis|badminton|chess|nba|boxing|wwe
-  league       String   // IPL|EPL|UFC|PKL|...
-  eventName    String?
-  homeTeam     String
-  awayTeam     String
-  commenceTime DateTime
-  status       String   @default("upcoming") // upcoming|live|completed|cancelled
-  result       String?  // home|away|draw|no_result
-  metadata     Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  markets      Market[]
-}
-
-model Market {
-  id         String   @id @default(cuid())
-  eventId    String
-  marketType String   // moneyline|toss_winner|prop_yes_no
-  label      String
-  status     String   @default("open") // open|settled|void
-  options    Json     // [{key,label,odds}]
-  resultKey  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  event      SportEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  bets       MarketBet[]
-}
-
-model MarketBet {
-  id        String   @id @default(cuid())
-  userId    String
-  marketId  String
-  optionKey String
-  amount    Float
-  odds      Float
-  payout    Float?
-  status    String   @default("pending") // pending|won|lost|void
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  market    Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
-}
-
-model Bet {
-  id        String   @id @default(cuid())
-  userId    String
-  fightId   String
-  fighter   String
-  amount    Float
-  odds      Float
-  status    String   @default("pending")
-  payout    Float?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fight Fight @relation(fields: [fightId], references: [id], onDelete: Cascade)
-}
-
-model Transaction {
-  id          String   @id @default(cuid())
-  userId      String
-  type        String
-  amount      Float
-  description String
-  createdAt   DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ── Season announcements (upcoming events banner) ───────────────────────────
@@ -305,4 +122,55 @@ model SeasonAnnouncement {
   bettingOpensAt DateTime?
   active         Boolean   @default(true)
   createdAt      DateTime  @default(now())
+}
+
+// ── Find the Imposter — multiplayer word game ────────────────────────────────
+model GameRoom {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  hostId           String
+  status           String   @default("lobby") // lobby|active|voting|last_stand|completed
+  difficulty       String   @default("medium")
+  civilianWord     String?
+  imposterWord     String?
+  sharedAttr       String?
+  currentRound     Int      @default(1)
+  winningSide      String? // "civilian" | "imposter"
+  lastStandOutcome String? // "success" | "failure"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  host     User          @relation("GameRoomHost", fields: [hostId], references: [id])
+  players  GamePlayer[]
+  messages GameMessage[]
+}
+
+model GamePlayer {
+  id           String   @id @default(cuid())
+  roomId       String
+  userId       String
+  role         String? // "civilian" | "imposter" — null until started
+  word         String? // their secret word — null until started
+  hasVoted     Boolean  @default(false)
+  votedFor     String? // userId they voted for
+  isEliminated Boolean  @default(false)
+  joinedAt     DateTime @default(now())
+
+  room GameRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}
+
+model GameMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  content   String
+  type      String   @default("chat") // "chat" | "clue" | "system"
+  round     Int?
+  createdAt DateTime @default(now())
+
+  room GameRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

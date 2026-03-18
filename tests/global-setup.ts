@@ -1,33 +1,26 @@
 /**
- * Global setup: warms up the Vercel deployment + Neon DB before tests run.
- * Neon free-tier databases suspend after inactivity and need ~30s to wake up.
+ * Global setup — warms up the site before tests run.
+ * For Vercel production runs, this wakes Neon DB from suspension.
+ * For localhost runs, this is a no-op (server started via webServer config).
  */
 import { request } from '@playwright/test'
 
 async function globalSetup() {
-  const BASE_URL = process.env.BASE_URL || 'https://octagonbet.vercel.app'
-  console.log(`\n[Setup] Waking up Neon DB and warming Vercel at ${BASE_URL}...`)
+  const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
+  if (BASE_URL.includes('localhost')) return // dev server handles this
 
+  console.log(`\n[Setup] Waking up Neon DB at ${BASE_URL}...`)
   const ctx = await request.newContext()
-
-  // Retry loop — Neon can take up to 45s to wake from suspension
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let i = 1; i <= 5; i++) {
     try {
-      console.log(`[Setup] Attempt ${attempt}/5 — hitting /api/fights...`)
+      console.log(`[Setup] Attempt ${i}/5...`)
       const res = await ctx.get(`${BASE_URL}/api/fights`, { timeout: 30000 })
-      if (res.ok()) {
-        console.log('[Setup] DB is awake! Waiting 2s for full warmup...')
-        await new Promise(r => setTimeout(r, 2000))
-        break
-      }
+      if (res.ok()) { console.log('[Setup] Ready.\n'); break }
     } catch {
-      console.log(`[Setup] Attempt ${attempt} timed out — retrying...`)
       await new Promise(r => setTimeout(r, 3000))
     }
   }
-
   await ctx.dispose()
-  console.log('[Setup] Ready.\n')
 }
 
 export default globalSetup

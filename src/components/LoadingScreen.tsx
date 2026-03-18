@@ -65,7 +65,7 @@ export default function LoadingScreen() {
         style={{ animationDelay: '0.2s', animationFillMode: 'both' }}
       >
         <span className="text-4xl font-black tracking-tight text-text-primary">
-          APEX<span className="text-primary">WAGER</span>
+          APEX <span className="text-primary">WAGER</span>
         </span>
       </div>
 
@@ -74,7 +74,7 @@ export default function LoadingScreen() {
         className="animate-fade-in mb-10 text-muted text-sm tracking-widest uppercase"
         style={{ animationDelay: '0.5s', animationFillMode: 'both' }}
       >
-        Bet Live. Win Big.
+        Think Sharp. Outsmart Everyone.
       </div>
 
       {/* Loading bar */}

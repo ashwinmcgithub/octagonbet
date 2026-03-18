@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Flame, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
+import { Flame, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -63,15 +63,9 @@ export default function RegisterPage() {
             <Flame className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-3xl font-black text-text-primary">Create your account</h1>
-          <p className="text-muted mt-1">Get 1,000 ApexCoins free to start betting</p>
+          <p className="text-muted mt-1">Join Apex Wager and start playing</p>
         </div>
 
-        <div className="flex items-center gap-3 bg-win/10 border border-win/20 rounded-xl px-4 py-3 mb-6">
-          <CheckCircle className="h-5 w-5 text-win shrink-0" />
-          <p className="text-sm text-win font-medium">
-            New accounts start with <strong>AC 1,000</strong> — no deposit required
-          </p>
-        </div>
 
         <div className="rounded-2xl border border-border bg-surface p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -151,7 +145,7 @@ export default function RegisterPage() {
                 placeholder="e.g. JON123"
                 className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm text-text-primary placeholder-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors uppercase"
               />
-              <p className="text-xs text-muted mt-1">Have a friend's code? They'll earn 500 AC when you join!</p>
+              <p className="text-xs text-muted mt-1">Have a friend's invite code? Enter it here.</p>
             </div>
 
             {error && (
@@ -166,7 +160,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full rounded-xl bg-primary hover:bg-primary-hover py-3.5 text-sm font-bold text-white shadow-red-glow hover:shadow-none transition-all disabled:opacity-50"
             >
-              {loading ? 'Creating account...' : 'Create Account & Get AC 1,000'}
+              {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
         </div>

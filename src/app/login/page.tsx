@@ -45,7 +45,7 @@ export default function LoginPage() {
             <Flame className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-3xl font-black text-text-primary">Welcome back</h1>
-          <p className="text-muted mt-1">Sign in to your ApexWager account</p>
+          <p className="text-muted mt-1">Sign in to your Apex Wager account</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-surface p-8">
@@ -65,9 +65,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted mb-2 uppercase tracking-wider">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-medium text-muted uppercase tracking-wider">
+                  Password
+                </label>
+                <Link href="/forgot-password" className="text-xs text-primary hover:text-primary-glow transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
