@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar'
 import LoadingScreen from '@/components/LoadingScreen'
 
 export const metadata: Metadata = {
-  title: 'Apex Wager â€” Play Smart Games',
+  title: 'Apex Arena — Play Smart Games',
   description: 'Outsmart your friends in deduction games. Find the Imposter, Phantom Protocol, and more.',
 }
 
@@ -26,3 +26,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   )
 }
+

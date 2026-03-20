@@ -21,7 +21,7 @@ export default function Navbar() {
               <Flame className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight text-text-primary">
-              APEX <span className="text-primary">WAGER</span>
+              APEX <span className="text-primary">ARENA</span>
             </span>
           </Link>
 
